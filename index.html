@@ -179,6 +179,7 @@ input[type=email],input[type=password]{width:100%;border:1px solid var(--line);b
     <div class="err" id="lg-err" hidden></div>
     <button class="btn pri" type="submit" id="lg-btn">Se connecter</button>
     <button class="btn ghost" type="button" id="lg-reset">Mot de passe oublié ?</button>
+    <div class="hint" id="lg-diag" style="font-family:var(--f-num);font-size:11px;overflow-wrap:anywhere">v2</div>
   </form>
 </section>
 <div id="app" hidden>
@@ -204,6 +205,11 @@ input[type=email],input[type=password]{width:100%;border:1px solid var(--line);b
 <div id="pdfhost"></div>
 <div id="toast" class="toast" hidden></div>
 
+<script>
+window.__diag=function(m){try{var d=document.getElementById('lg-diag');if(d)d.textContent='v2 · '+m}catch(e){}};
+window.addEventListener('error',function(e){__diag('Erreur : '+(e.message||'script')+(e.filename?' ('+e.filename.split('/').pop()+')':''))});
+window.addEventListener('unhandledrejection',function(e){var r=e.reason||{};__diag('Erreur : '+(r.code||'')+' '+(r.message||r))});
+</script>
 <script>
 /* Configuration Firebase du projet lamine-conseil-suivi */
 window.FIREBASE_CONFIG = {
@@ -766,24 +772,27 @@ $('#view-fournisseurs').addEventListener('change',async e=>{
 });
 function showLogin(msg){$('#app').hidden=true;$('#login').hidden=false;const er=$('#lg-err');er.textContent=msg||'';er.hidden=!msg}
 function loginErr(c){
+  if(/api-key|referer|unauthorized-domain|operation-not-allowed/.test(c))return 'Connexion refusée par Firebase ('+c+').';
   if(/invalid-credential|wrong-password|user-not-found|invalid-email|invalid-login/.test(c))return 'Email ou mot de passe incorrect.';
   if(/too-many-requests/.test(c))return 'Trop de tentatives. Attendez quelques minutes puis réessayez.';
   if(/network/.test(c))return 'Pas de connexion internet. Vérifiez votre réseau.';
   return 'Connexion impossible. Réessayez.';
 }
 (function boot(){
-  if(!window.firebase||!FIREBASE_CONFIG){showLogin(!window.firebase?"Impossible de charger le service de connexion. Vérifiez votre connexion internet puis rechargez la page.":"Configuration Firebase manquante.");return}
+  if(!window.firebase||!FIREBASE_CONFIG){__diag(!window.firebase?'firebase non chargé':'config absente');showLogin(!window.firebase?"Impossible de charger le service de connexion. Vérifiez votre connexion internet puis rechargez la page.":"Configuration Firebase manquante.");return}
   firebase.initializeApp(FIREBASE_CONFIG);const auth=firebase.auth();const fs=firebase.firestore();
   try{fs.enablePersistence({synchronizeTabs:true}).catch(()=>{})}catch(x){}
   $('#lg-form').addEventListener('submit',async e=>{
-    e.preventDefault();const btn=$('#lg-btn');btn.disabled=true;btn.textContent='Connexion…';
-    try{await auth.signInWithEmailAndPassword($('#lg-mail').value.trim(),$('#lg-pass').value)}
-    catch(x){showLogin(loginErr(x.code||''))}finally{btn.disabled=false;btn.textContent='Se connecter'}
+    e.preventDefault();const btn=$('#lg-btn');btn.disabled=true;btn.textContent='Connexion…';__diag('connexion en cours…');
+    const to=setTimeout(()=>__diag('pas de réponse du serveur après 15 s. Vérifiez internet.'),15000);
+    try{const r=await auth.signInWithEmailAndPassword($('#lg-mail').value.trim(),$('#lg-pass').value);__diag('connecté')}
+    catch(x){showLogin(loginErr(x.code||''));__diag((x.code||'')+' '+(x.message||''))}
+    finally{clearTimeout(to);btn.disabled=false;btn.textContent='Se connecter'}
   });
   $('#lg-reset').onclick=async()=>{const m=$('#lg-mail').value.trim();if(!m)return showLogin("Écrivez d'abord votre email, puis cliquez à nouveau.");
     try{await auth.sendPasswordResetEmail(m);showLogin('Un email de réinitialisation a été envoyé à '+m+'.')}catch(x){showLogin(loginErr(x.code||''))}};
   $('#logout').onclick=()=>auth.signOut();
-  auth.onAuthStateChanged(u=>{
+  auth.onAuthStateChanged(u=>{try{__diag(u?'session : '+u.email:'prêt')}catch(x){}
     unsubs.forEach(f=>f());unsubs=[];
     if(!u){S.store=null;S.fournisseurs=[];S.factures=[];showLogin('');return}
     $('#login').hidden=true;$('#app').hidden=false;$('#who-mail').textContent=u.email||'';
