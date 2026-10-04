@@ -121,6 +121,11 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 
 .fcard .tx b{display:block;overflow-wrap:anywhere}
 .fcard .tx span{font-size:12px;color:var(--muted)}
 .seg{display:flex;gap:6px;flex-wrap:wrap}
+.doc-type label{flex:1 1 110px;justify-content:center;align-items:center;font-weight:600}
+.chk{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted)}
+.badge{display:inline-block;font-size:10.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;padding:2px 6px;border-radius:4px;margin-right:6px;vertical-align:1px;background:var(--sunk);color:var(--muted)}
+.badge.devis{background:var(--accent-soft);color:var(--accent)}
+.badge.bl{background:var(--danger-soft);color:var(--warn)}
 .seg label{flex:1 1 150px;border:1px solid var(--line);border-radius:8px;padding:10px;cursor:pointer;display:flex;gap:8px;align-items:flex-start;font-size:13px}
 .seg label:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}
 .seg small{display:block;color:var(--muted);font-size:12px}
@@ -156,6 +161,10 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 
 .a4 .t-tot td{border:1px solid #222;padding:7px 10px}
 .a4 .t-tot td:last-child{text-align:right;font-family:"IBM Plex Mono",monospace}
 .a4 .t-tot tr:last-child td{font-weight:700;background:#efefef;font-size:13.5px}
+.a4 .t-bl th:nth-child(2),.a4 .t-bl td:nth-child(2){width:120px}
+.a4 .i-sign{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:6px}
+.a4 .i-sign div{border:1px solid #222;height:110px;padding:8px 10px;font-size:11.5px;font-weight:600}
+.a4 .i-sign small{font-weight:400;color:#555}
 .a4 .i-words{font-size:12.5px}
 .a4 .i-words b{font-weight:600}
 
@@ -181,7 +190,7 @@ input[type=email],input[type=password]{width:100%;border:1px solid var(--line);b
     <div class="err" id="lg-err" hidden></div>
     <button class="btn pri" type="submit" id="lg-btn">Se connecter</button>
     <button class="btn ghost" type="button" id="lg-reset">Mot de passe oublié ?</button>
-    <div class="hint" id="lg-diag" style="font-family:var(--f-num);font-size:11px;overflow-wrap:anywhere">v4</div>
+    <div class="hint" id="lg-diag" style="font-family:var(--f-num);font-size:11px;overflow-wrap:anywhere">v5</div>
   </form>
 </section>
 <div id="app" hidden>
@@ -189,7 +198,7 @@ input[type=email],input[type=password]{width:100%;border:1px solid var(--line);b
   <div class="top-in">
     <div class="brand"><i></i>Factures</div>
     <nav class="tabs" role="tablist">
-      <button class="tab" role="tab" data-tab="nouvelle" aria-selected="true">Nouvelle facture</button>
+      <button class="tab" role="tab" data-tab="nouvelle" aria-selected="true">Nouveau</button>
       <button class="tab" role="tab" data-tab="archive" aria-selected="false">Archive<span class="ct" id="ct-arch"></span></button>
       <button class="tab" role="tab" data-tab="fournisseurs" aria-selected="false">Fournisseurs<span class="ct" id="ct-four"></span></button>
     </nav>
@@ -208,7 +217,7 @@ input[type=email],input[type=password]{width:100%;border:1px solid var(--line);b
 <div id="toast" class="toast" hidden></div>
 
 <script>
-window.__diag=function(m){try{var d=document.getElementById('lg-diag');if(d)d.textContent='v4 · '+m}catch(e){}};
+window.__diag=function(m){try{var d=document.getElementById('lg-diag');if(d)d.textContent='v5 · '+m}catch(e){}};
 window.addEventListener('error',function(e){__diag('Erreur : '+(e.message||'script')+(e.filename?' ('+e.filename.split('/').pop()+')':''))});
 window.addEventListener('unhandledrejection',function(e){var r=e.reason||{};__diag('Erreur : '+(r.code||'')+' '+(r.message||r))});
 </script>
@@ -226,6 +235,7 @@ window.FIREBASE_CONFIG = {
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
@@ -366,14 +376,19 @@ async function storeImage(canvas,maxLen){
 }
 
 /* ---------- Numérotation ---------- */
-function nextNumero(fid,dateISO){
-  const f=fById(fid);const pre=(f&&f.prefixe)||'';const y=(dateISO||todayISO()).slice(0,4);let max=0;
-  S.factures.forEach(x=>{if(x.fournisseurId!==fid)return;const m=String(x.numero||'').match(/(\d+)\s*\/\s*(\d{4})/);if(m&&m[2]===y)max=Math.max(max,+m[1])});
+const TYPES={facture:{label:'Facture',title:'FACTURE',nouveau:'Nouvelle facture',le:'la facture',pre:''},
+  devis:{label:'Devis',title:'DEVIS',nouveau:'Nouveau devis',le:'le devis',pre:'D'},
+  bl:{label:'Bon de livraison',short:'BL',title:'BON DE LIVRAISON',nouveau:'Nouveau bon de livraison',le:'le bon de livraison',pre:'BL'}};
+const tOf=x=>(x&&TYPES[x.type])?x.type:'facture';
+function nextNumero(fid,dateISO,type){type=type||'facture';
+  const f=fById(fid);const pre=((f&&f.prefixe)||'')+TYPES[type].pre;const y=(dateISO||todayISO()).slice(0,4);let max=0;
+  S.factures.forEach(x=>{if(x.fournisseurId!==fid||tOf(x)!==type)return;const m=String(x.numero||'').match(/(\d+)\s*\/\s*(\d{4})/);if(m&&m[2]===y)max=Math.max(max,+m[1])});
   return `${pre}${String(max+1).padStart(3,'0')}/${y}`;
 }
-function blankDraft(fid){
+function blankDraft(fid,type){
+  type=type||(S.draft&&S.draft.type)||'facture';
   const f=fById(fid)||S.fournisseurs[0];const date=todayISO();
-  return {fournisseurId:f?f.id:'',numero:f?nextNumero(f.id,date):'',date,client:{nom:'',ice:'',adresse:''},lignes:[{designation:'',qte:'1',pu:''}],tva:f?(f.tva??20):20};
+  return {type,blPrix:false,fournisseurId:f?f.id:'',numero:f?nextNumero(f.id,date,type):'',date,client:{nom:'',ice:'',adresse:''},lignes:[{designation:'',qte:'1',pu:''}],tva:f?(f.tva??20):20};
 }
 function totals(d){
   const ht=r2((d.lignes||[]).reduce((s,l)=>s+r2(num(l.qte)*num(l.pu)),0));const tv=r2(ht*num(d.tva)/100);
@@ -382,12 +397,12 @@ function totals(d){
 
 /* ---------- La facture A4 ---------- */
 function invoiceHTML(d,f){
-  const t=totals(d);const mode=(f&&f.mode)||'header';const hdr=imgSrc(f,'header');const ftr=imgSrc(f,'footer');
+  const t=totals(d);const mode=(f&&f.mode)||'header';const ty=tOf(d);const noPrix=ty==='bl'&&!d.blPrix;const hdr=imgSrc(f,'header');const ftr=imgSrc(f,'footer');
   const lines=(d.lignes||[]).filter(l=>String(l.designation||'').trim()||num(l.pu));
-  const rows=lines.map(l=>`<tr><td>${esc(l.designation).replace(/\n/g,'<br>')}</td><td class="num">${fmtQ(l.qte)}</td><td class="num">${fmt(num(l.pu))}</td><td class="num">${fmt(r2(num(l.qte)*num(l.pu)))}</td></tr>`).join('');
+  const rows=lines.map(l=>noPrix?`<tr><td>${esc(l.designation).replace(/\n/g,'<br>')}</td><td class="num">${fmtQ(l.qte)}</td></tr>`:`<tr><td>${esc(l.designation).replace(/\n/g,'<br>')}</td><td class="num">${fmtQ(l.qte)}</td><td class="num">${fmt(num(l.pu))}</td><td class="num">${fmt(r2(num(l.qte)*num(l.pu)))}</td></tr>`).join('');
   const avail=mode==='page'?1123-Math.round(num(f&&f.mt!=null?f.mt:45)*3.78)-Math.round(num(f&&f.mb!=null?f.mb:30)*3.78):900;
   const maxRows=Math.max(1,Math.min(9,Math.floor((avail-400)/30)));
-  const fill=Array.from({length:Math.max(0,maxRows-lines.length)},()=>'<tr><td>&nbsp;</td><td></td><td></td><td></td></tr>').join('');
+  const fill=Array.from({length:Math.max(0,maxRows-lines.length)},()=>noPrix?'<tr><td>&nbsp;</td><td></td></tr>':'<tr><td>&nbsp;</td><td></td><td></td><td></td></tr>').join('');
   let top='',bot='',bg='',pad='';
   if(mode==='page'){
     bg=hdr?`<img class="bgimg" src="${hdr}" alt="">`:'<div class="bgph">Papier en-tête du fournisseur</div>';
@@ -399,14 +414,16 @@ function invoiceHTML(d,f){
   const ville=(f&&f.ville)||'Casablanca';
   const c=d.client||{};
   return `<div class="a4">${bg}${top}<div class="inner" style="${pad}">
-    <div class="i-top"><div><div class="i-title">FACTURE</div><div class="i-no">N° <b>${esc(d.numero)||'—'}</b></div></div>
+    <div class="i-top"><div><div class="i-title">${TYPES[ty].title}</div><div class="i-no">N° <b>${esc(d.numero)||'—'}</b></div></div>
       <div class="i-date">${esc(ville)}, le <b>${frDate(d.date)}</b></div></div>
     <div class="i-client"><span class="c-l">Client</span><span class="c-n">${esc(c.nom)||'&nbsp;'}</span>
       <span><b>ICE :</b> ${esc(c.ice)}</span><span><b>Adresse :</b> ${esc(c.adresse).replace(/\n/g,'<br>')}</span></div>
-    <table class="t-lines"><thead><tr><th style="text-align:left">Désignation</th><th>Qté</th><th>P.U. H.T</th><th>Montant H.T</th></tr></thead>
+    <table class="t-lines${noPrix?' t-bl':''}"><thead><tr><th style="text-align:left">Désignation</th><th>${noPrix?'Quantité':'Qté'}</th>${noPrix?'':'<th>P.U. H.T</th><th>Montant H.T</th>'}</tr></thead>
       <tbody>${rows}${fill}</tbody></table>
-    <table class="t-tot"><tr><td>Total H.T</td><td>${fmt(t.ht)}</td></tr><tr><td>TVA ${num(d.tva)} %</td><td>${fmt(t.tva)}</td></tr><tr><td>Total T.T.C</td><td>${fmt(t.ttc)}</td></tr></table>
-    <div class="i-words">Arrêtée la présente facture à la somme de : <b>${amountWords(t.ttc)} TTC</b>.</div>
+    ${noPrix?'':`<table class="t-tot"><tr><td>Total H.T</td><td>${fmt(t.ht)}</td></tr><tr><td>TVA ${num(d.tva)} %</td><td>${fmt(t.tva)}</td></tr><tr><td>Total T.T.C</td><td>${fmt(t.ttc)}</td></tr></table>`}
+    ${ty==='facture'?`<div class="i-words">Arrêtée la présente facture à la somme de : <b>${amountWords(t.ttc)} TTC</b>.</div>`:''}
+    ${ty==='devis'?`<div class="i-words">Arrêté le présent devis à la somme de : <b>${amountWords(t.ttc)} TTC</b>.<br>Devis valable 30 jours à compter de sa date.</div>`:''}
+    ${ty==='bl'?`<div class="i-sign"><div>Cachet et signature du fournisseur</div><div>Reçu par le client<br><small>(nom, date, cachet et signature)</small></div></div>`:''}
   </div>${bot}</div>`;
 }
 function fitPreview(box){
@@ -435,7 +452,7 @@ async function downloadPdf(fact){
       const k=document.createElement('canvas');k.width=cv.width;k.height=h;k.getContext('2d').drawImage(cv,0,y,cv.width,h,0,0,cv.width,h);
       if(!first)pdf.addPage();pdf.addImage(k.toDataURL('image/jpeg',.93),'JPEG',0,0,210,210*h/cv.width);first=false;
     }
-    const name=`Facture_${String(fact.numero||'').replace(/[^\w-]+/g,'-')}_${String(fact.client?.nom||'').replace(/[^\w-]+/g,'-')}.pdf`.replace(/-+/g,'-');
+    const name=`${(TYPES[tOf(fact)].short||TYPES[tOf(fact)].label).replace(/\s+/g,'_')}_${String(fact.numero||'').replace(/[^\w-]+/g,'-')}_${String(fact.client?.nom||'').replace(/[^\w-]+/g,'-')}.pdf`.replace(/-+/g,'-');
     if(!S.downloads){pdf.save(name);toast('PDF téléchargé');return}
     const res=await S.downloads.save({filename:name,data:pdf.output('blob')});
     toast(res&&res.status==='saved'?'PDF téléchargé':'PDF envoyé');
@@ -460,8 +477,8 @@ function renderStatus(){
 }
 function afterData(){
   if(!S.draft)S.draft=blankDraft();
-  if(!S.editingId&&S.draft.fournisseurId&&!S.draft._numTouched&&!S.draft.client.nom){const n=nextNumero(S.draft.fournisseurId,S.draft.date);if(n!==S.draft.numero){S.draft.numero=n;const el=$('#e-num');if(el&&document.activeElement!==el)el.value=n}}
-  if(!S.draft.fournisseurId&&S.fournisseurs[0]&&!S.editingId){S.draft.fournisseurId=S.fournisseurs[0].id;S.draft.tva=S.fournisseurs[0].tva??20;S.draft.numero=nextNumero(S.fournisseurs[0].id,S.draft.date)}
+  if(!S.editingId&&S.draft.fournisseurId&&!S.draft._numTouched&&!S.draft.client.nom){const n=nextNumero(S.draft.fournisseurId,S.draft.date,tOf(S.draft));if(n!==S.draft.numero){S.draft.numero=n;const el=$('#e-num');if(el&&document.activeElement!==el)el.value=n}}
+  if(!S.draft.fournisseurId&&S.fournisseurs[0]&&!S.editingId){S.draft.fournisseurId=S.fournisseurs[0].id;S.draft.tva=S.fournisseurs[0].tva??20;S.draft.numero=nextNumero(S.fournisseurs[0].id,S.draft.date,tOf(S.draft))}
   renderStatus();
   if(S.tab==='nouvelle'){
     const sel=$('#e-four');
@@ -484,17 +501,18 @@ function renderEditor(){
         <div class="fld"><label for="l-p-${i}">Prix unitaire H.T</label><input id="l-p-${i}" type="text" inputmode="decimal" class="num-in" data-k="pu" data-i="${i}" value="${esc(l.pu)}" placeholder="0,00"></div>
         <div class="fld"><span class="lbl">Montant H.T</span><div class="mt" id="l-mt-${i}">${fmt(r2(num(l.qte)*num(l.pu)))}</div></div>
       </div></div>`).join('');
-  const editing=S.editingId?S.factures.find(x=>x.id===S.editingId):null;
+  const editing=S.editingId?S.factures.find(x=>x.id===S.editingId):null;const ty=tOf(d);const T=TYPES[ty];
   v.innerHTML=`
-  ${editing?`<div class="notice" style="margin-bottom:12px"><span>Vous modifiez la facture <b>${esc(editing.numero)}</b> (${esc(editing.client?.nom||'')}). Les changements remplaceront cette facture.</span><button type="button" class="btn sm" data-act="new">Annuler et créer une nouvelle facture</button></div>`:''}
-  <h2>${editing?`Modifier la facture <span style="font-family:var(--f-num)">${esc(editing.numero)}</span>`:'Nouvelle facture'}</h2>
+  ${editing?`<div class="notice" style="margin-bottom:12px"><span>Vous modifiez ${T.le} <b>${esc(editing.numero)}</b> (${esc(editing.client?.nom||'')}). Les changements remplaceront ce document.</span><button type="button" class="btn sm" data-act="new">Annuler et créer un nouveau document</button></div>`:''}
+  <h2>${editing?`Modifier ${T.le} <span style="font-family:var(--f-num)">${esc(editing.numero)}</span>`:T.nouveau}</h2>
+  <div class="seg doc-type" role="radiogroup" aria-label="Type de document" style="margin-bottom:14px">${Object.entries(TYPES).map(([k,v])=>`<label><input type="radio" name="e-type" value="${k}"${k===ty?' checked':''}${editing?' disabled':''}><span>${v.label}</span></label>`).join('')}</div>
   ${hasF?'':`<div class="notice" style="margin-bottom:16px"><span>Ajoutez d'abord un fournisseur avec son modèle d'entête. Il restera enregistré pour toutes vos factures.</span><button class="btn pri sm" data-act="go-four">Ajouter un fournisseur</button></div>`}
   <div class="grid">
     <form class="panel" id="e-form" autocomplete="off">
       <div class="sec"><h3>Fournisseur</h3>
         <div class="row"><div class="fld"><label for="e-four">Modèle de facture</label><select id="e-four" ${hasF?'':'disabled'}>${fopts}</select></div></div>
         <div class="row">
-          <div class="fld"><label for="e-num">N° facture</label><input id="e-num" type="text" class="num-in" style="text-align:left" value="${esc(d.numero)}"></div>
+          <div class="fld"><label for="e-num">N° ${ty==='facture'?'facture':ty==='devis'?'devis':'BL'}</label><input id="e-num" type="text" class="num-in" style="text-align:left" value="${esc(d.numero)}"></div>
           <div class="fld"><label for="e-date">Date</label><input id="e-date" type="date" value="${esc(d.date)}"></div>
         </div>
       </div>
@@ -506,6 +524,7 @@ function renderEditor(){
       <div class="sec"><h3>Désignations</h3>${lines}
         <button type="button" class="btn" data-act="add-line">+ Ajouter une ligne</button>
       </div>
+      ${ty==='bl'?`<label class="chk"><input type="checkbox" id="e-blprix"${d.blPrix?' checked':''}> Afficher les prix et les totaux sur le bon de livraison</label>`:''}
       <div class="sec">
         <div class="row"><div class="fld"><label for="e-tva">Taux de TVA</label><select id="e-tva">${TVA_RATES.map(r=>`<option value="${r}"${num(d.tva)===r?' selected':''}>${r} %</option>`).join('')}</select></div></div>
         <div class="tot" id="e-tot"></div>
@@ -514,7 +533,7 @@ function renderEditor(){
       <div class="actions">
         <button type="button" class="btn pri" data-act="save" ${hasF?'':'disabled'}>${editing?'Enregistrer les modifications':'Enregistrer'}</button>
         <button type="button" class="btn" data-act="save-pdf" ${hasF?'':'disabled'}>Enregistrer + PDF</button>
-        ${editing||S.draft.client.nom?'<button type="button" class="btn ghost" data-act="new">Nouvelle facture</button>':''}
+        ${editing||S.draft.client.nom?'<button type="button" class="btn ghost" data-act="new">Vider le formulaire</button>':''}
       </div>
     </form>
     <div class="pv-wrap"><div class="pv-cap"><h3 style="margin:0">Aperçu</h3><span class="hint">Format A4</span></div><div class="pv" id="e-pv"></div></div>
@@ -539,8 +558,10 @@ $('#view-nouvelle').addEventListener('input',e=>{
 });
 $('#view-nouvelle').addEventListener('change',e=>{
   const t=e.target,d=S.draft;
-  if(t.id==='e-four'){d.fournisseurId=t.value;const f=fById(t.value);if(f)d.tva=f.tva??20;if(!S.editingId)d.numero=nextNumero(t.value,d.date);renderEditor()}
-  else if(t.id==='e-date'){const old=d.date;d.date=t.value;if(!S.editingId&&old.slice(0,4)!==t.value.slice(0,4)){d.numero=nextNumero(d.fournisseurId,d.date);$('#e-num').value=d.numero}renderPreview()}
+  if(t.name==='e-type'){d.type=t.value;if(!S.editingId){d.numero=nextNumero(d.fournisseurId,d.date,d.type);d._numTouched=false}renderEditor()}
+  else if(t.id==='e-blprix'){d.blPrix=t.checked;renderPreview()}
+  else if(t.id==='e-four'){d.fournisseurId=t.value;const f=fById(t.value);if(f)d.tva=f.tva??20;if(!S.editingId)d.numero=nextNumero(t.value,d.date,tOf(d));renderEditor()}
+  else if(t.id==='e-date'){const old=d.date;d.date=t.value;if(!S.editingId&&old.slice(0,4)!==t.value.slice(0,4)){d.numero=nextNumero(d.fournisseurId,d.date,tOf(d));$('#e-num').value=d.numero}renderPreview()}
   else if(t.id==='e-tva'){d.tva=num(t.value);renderPreview()}
 });
 $('#view-nouvelle').addEventListener('click',async e=>{
@@ -548,62 +569,99 @@ $('#view-nouvelle').addEventListener('click',async e=>{
   if(a==='add-line'){d.lignes.push({designation:'',qte:'1',pu:''});renderEditor();const i=d.lignes.length-1;const el=$('#l-des-'+i);if(el){el.focus();el.scrollIntoView({block:'center'})}}
   if(a==='del-line'){d.lignes.splice(+b.dataset.i,1);renderEditor()}
   if(a==='go-four')setTab('fournisseurs');
-  if(a==='new'){S.editingId=null;S.draft=blankDraft(d.fournisseurId);renderEditor()}
+  if(a==='new'){S.editingId=null;S.draft=blankDraft(d.fournisseurId,tOf(d));renderEditor()}
   if(a==='save'||a==='save-pdf')await saveDraft(a==='save-pdf');
 });
 function showErr(msg){const el=$('#e-err');if(!el)return;el.textContent=msg||'';el.hidden=!msg}
 async function saveDraft(andPdf){
   if(S.busy)return;const d=S.draft;showErr('');
   if(!d.fournisseurId)return showErr('Choisissez un fournisseur.');
-  if(!String(d.numero).trim())return showErr('Indiquez le numéro de facture.');
+  const ty=tOf(d);const T=TYPES[ty];
+  if(!String(d.numero).trim())return showErr('Indiquez le numéro du document.');
   if(!String(d.client.nom).trim())return showErr('Indiquez le nom du client.');
   const lignes=d.lignes.filter(l=>String(l.designation).trim()||num(l.pu));
-  if(!lignes.length)return showErr('Ajoutez au moins une désignation avec un prix.');
-  const dup=S.factures.find(x=>x.fournisseurId===d.fournisseurId&&String(x.numero).trim()===String(d.numero).trim()&&x.id!==S.editingId);
-  if(dup)return showErr(`Le numéro ${d.numero} existe déjà pour ce fournisseur (client : ${dup.client?.nom||'—'}). Changez le numéro.`);
+  if(!lignes.length)return showErr(ty==='bl'?'Ajoutez au moins une désignation.':'Ajoutez au moins une désignation avec un prix.');
+  const dup=S.factures.find(x=>x.fournisseurId===d.fournisseurId&&tOf(x)===ty&&String(x.numero).trim()===String(d.numero).trim()&&x.id!==S.editingId);
+  if(dup)return showErr(`Le numéro ${d.numero} existe déjà (${T.label}, client : ${dup.client?.nom||'—'}). Changez le numéro.`);
   const t=totals({...d,lignes});const id=S.editingId||newId('factures');const ex=S.factures.find(x=>x.id===id);
-  const data={fournisseurId:d.fournisseurId,numero:String(d.numero).trim(),date:d.date,client:{nom:d.client.nom.trim(),ice:d.client.ice.trim(),adresse:d.client.adresse.trim()},
+  const data={type:ty,blPrix:!!d.blPrix,fournisseurId:d.fournisseurId,numero:String(d.numero).trim(),date:d.date,client:{nom:d.client.nom.trim(),ice:d.client.ice.trim(),adresse:d.client.adresse.trim()},
     lignes:lignes.map(l=>({designation:l.designation,qte:String(l.qte),pu:String(l.pu)})),tva:num(d.tva),ht:t.ht,tvaMontant:t.tva,ttc:t.ttc,
     createdAt:ex?.createdAt||Date.now(),updatedAt:Date.now()};
   S.busy=true;
   try{await saveDoc('factures',id,data);const wasEdit=!!S.editingId;
     if(!S.factures.some(x=>x.id===id))S.factures.unshift({...data,id});
-    S.editingId=null;S.draft=blankDraft(data.fournisseurId);
-    toast(wasEdit?`Facture ${data.numero} modifiée. Vous pouvez saisir une nouvelle facture.`:`Facture ${data.numero} enregistrée. Vous pouvez saisir la suivante.`);renderEditor();window.scrollTo(0,0);
+    S.editingId=null;S.draft=blankDraft(data.fournisseurId,ty);
+    toast(wasEdit?`${T.label} ${data.numero} modifié(e).`:`${T.label} ${data.numero} enregistré(e). Vous pouvez saisir le suivant.`);renderEditor();window.scrollTo(0,0);
     if(andPdf)await downloadPdf({...data,id});
   }catch(e){showErr(dbErr(e))}finally{S.busy=false}
 }
 
 /* ---------- Archive ---------- */
-function renderArchive(){
-  const v=$('#view-archive');const q=S.search.trim().toLowerCase();
-  const list=S.factures.filter(x=>(!S.filterF||x.fournisseurId===S.filterF)&&(!q||[x.numero,x.client?.nom,x.client?.ice,fById(x.fournisseurId)?.nom,frDate(x.date)].join(' ').toLowerCase().includes(q)))
+S.filterT='';S.filterM='';
+function monthLabel(m){const [y,mo]=m.split('-');return ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'][+mo-1]+' '+y}
+function archiveList(){
+  const q=S.search.trim().toLowerCase();
+  return S.factures.filter(x=>(!S.filterF||x.fournisseurId===S.filterF)&&(!S.filterT||tOf(x)===S.filterT)&&(!S.filterM||String(x.date).slice(0,7)===S.filterM)
+      &&(!q||[x.numero,x.client?.nom,x.client?.ice,fById(x.fournisseurId)?.nom,frDate(x.date),TYPES[tOf(x)].label].join(' ').toLowerCase().includes(q)))
     .sort((a,b)=>String(b.date).localeCompare(String(a.date))||(b.createdAt||0)-(a.createdAt||0));
-  const total=list.reduce((s,x)=>s+(+x.ttc||0),0);
+}
+function renderArchive(){
+  const v=$('#view-archive');const list=archiveList();
+  const months=[...new Set(S.factures.map(x=>String(x.date).slice(0,7)).filter(m=>/^\d{4}-\d{2}$/.test(m)))].sort().reverse();
+  const fact=list.filter(x=>tOf(x)==='facture');const totalF=fact.reduce((s,x)=>s+(+x.ttc||0),0);
+  const cnt=k=>list.filter(x=>tOf(x)===k).length;
   const focusSearch=document.activeElement&&document.activeElement.id==='a-q';const pos=focusSearch?document.activeElement.selectionStart:0;
-  v.innerHTML=`<h2>Archive des factures</h2>
+  v.innerHTML=`<h2>Archive</h2>
   <div class="bar"><input id="a-q" type="text" placeholder="Rechercher : client, N°, ICE, date…" value="${esc(S.search)}">
-    <select id="a-f"><option value="">Tous les fournisseurs</option>${S.fournisseurs.map(f=>`<option value="${f.id}"${f.id===S.filterF?' selected':''}>${esc(f.nom)}</option>`).join('')}</select></div>
-  <div class="sum">${list.length} facture${list.length>1?'s':''} · Total T.T.C <b>${fmt(total)} DH</b></div>
-  <div class="list">${list.length?list.map(x=>{const f=fById(x.fournisseurId);return `<div class="it">
-     <div><div class="no">${esc(x.numero)}</div><div class="dt">${frDate(x.date)}</div></div>
+    <select id="a-t" aria-label="Type"><option value="">Tous les documents</option>${Object.entries(TYPES).map(([k,t])=>`<option value="${k}"${k===S.filterT?' selected':''}>${t.label}</option>`).join('')}</select>
+    <select id="a-f" aria-label="Fournisseur"><option value="">Tous les fournisseurs</option>${S.fournisseurs.map(f=>`<option value="${f.id}"${f.id===S.filterF?' selected':''}>${esc(f.nom)}</option>`).join('')}</select>
+    <select id="a-m" aria-label="Mois"><option value="">Tous les mois</option>${months.map(m=>`<option value="${m}"${m===S.filterM?' selected':''}>${monthLabel(m)}</option>`).join('')}</select>
+    <button class="btn pri" data-act="xlsx" ${list.length?'':'disabled'}>Exporter Excel</button></div>
+  <div class="sum">${cnt('facture')} facture(s) · ${cnt('devis')} devis · ${cnt('bl')} BL &nbsp;—&nbsp; Total factures T.T.C <b>${fmt(totalF)} DH</b></div>
+  <div class="list">${list.length?list.map(x=>{const f=fById(x.fournisseurId);const ty=tOf(x);const noPrix=ty==='bl'&&!x.blPrix;return `<div class="it">
+     <div><div class="no"><span class="badge ${ty}">${TYPES[ty].short||TYPES[ty].label}</span>${esc(x.numero)}</div><div class="dt">${frDate(x.date)}</div></div>
      <div style="min-width:0"><div class="cl">${esc(x.client?.nom)}</div><div class="fo">${esc(f?f.nom:'Fournisseur supprimé')}</div></div>
-     <div class="am">${fmt(x.ttc)}<small>TTC · HT ${fmt(x.ht)}</small></div>
+     <div class="am">${noPrix?'—':fmt(x.ttc)}<small>${noPrix?'sans prix':'TTC · HT '+fmt(x.ht)}</small></div>
      <div class="ac">${S.confirmDel===x.id?`<span class="confirm">Supprimer définitivement ?<button class="btn sm dng solid" data-act="del-yes" data-id="${x.id}">Oui</button><button class="btn sm" data-act="del-no">Non</button></span>`:
-       `<button class="btn sm" data-act="edit" data-id="${x.id}">Ouvrir / Modifier</button><button class="btn sm" data-act="pdf" data-id="${x.id}">PDF</button><button class="btn sm dng" data-act="del" data-id="${x.id}" aria-label="Supprimer">Supprimer</button>`}</div></div>`}).join('')
-    :`<div class="empty">${S.factures.length?'Aucune facture ne correspond à la recherche.':'Aucune facture pour le moment. Les factures enregistrées apparaîtront ici.'}</div>`}</div>`;
+       `<button class="btn sm" data-act="edit" data-id="${x.id}">Ouvrir / Modifier</button><button class="btn sm" data-act="pdf" data-id="${x.id}">PDF</button>${ty==='devis'?`<button class="btn sm" data-act="conv" data-to="facture" data-id="${x.id}">→ Facture</button>`:''}${ty==='facture'?`<button class="btn sm" data-act="conv" data-to="bl" data-id="${x.id}">→ BL</button>`:''}<button class="btn sm dng" data-act="del" data-id="${x.id}" aria-label="Supprimer">Supprimer</button>`}</div></div>`}).join('')
+    :`<div class="empty">${S.factures.length?'Aucun document ne correspond à la recherche.':'Aucun document pour le moment. Les factures, devis et BL enregistrés apparaîtront ici.'}</div>`}</div>`;
   if(focusSearch){const i=$('#a-q');i.focus();i.setSelectionRange(pos,pos)}
 }
+function exportRows(list){
+  const head=['Type','N°','Date','Fournisseur','Client','ICE client','Adresse client','Désignations','Total HT','TVA %','Montant TVA','Total TTC'];
+  const rows=list.map(x=>[TYPES[tOf(x)].label,x.numero,frDate(x.date),fById(x.fournisseurId)?.nom||'',x.client?.nom||'',x.client?.ice||'',x.client?.adresse||'',
+    (x.lignes||[]).map(l=>`${String(l.designation||'').replace(/\s+/g,' ').trim()} (${fmtQ(l.qte)})`).join(' ; '),r2(x.ht),num(x.tva),r2(x.tvaMontant),r2(x.ttc)]);
+  const f=list.filter(x=>tOf(x)==='facture');
+  if(f.length)rows.push([],['TOTAL FACTURES','','','','','','','',r2(f.reduce((s,x)=>s+(+x.ht||0),0)),'',r2(f.reduce((s,x)=>s+(+x.tvaMontant||0),0)),r2(f.reduce((s,x)=>s+(+x.ttc||0),0))]);
+  return [head,...rows];
+}
+function saveBlob(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000)}
+function exportExcel(){
+  const list=archiveList();if(!list.length)return;const aoa=exportRows(list);
+  const name='export-'+(S.filterT?TYPES[S.filterT].label.toLowerCase().replace(/\s+/g,'-'):'documents')+(S.filterM?'-'+S.filterM:'')+'-'+todayISO();
+  if(window.XLSX){
+    const ws=XLSX.utils.aoa_to_sheet(aoa);ws['!cols']=[{wch:16},{wch:14},{wch:11},{wch:22},{wch:26},{wch:17},{wch:30},{wch:50},{wch:13},{wch:7},{wch:13},{wch:13}];
+    const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Documents');XLSX.writeFile(wb,name+'.xlsx');
+  }else{
+    const csv='﻿'+aoa.map(r=>r.map(c=>{const v=typeof c==='number'?String(c).replace('.',','):String(c??'');return /[;"\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}).join(';')).join('\r\n');
+    saveBlob(new Blob([csv],{type:'text/csv;charset=utf-8'}),name+'.csv');
+  }
+  toast(`${list.length} document(s) exporté(s)`);
+}
 $('#view-archive').addEventListener('input',e=>{if(e.target.id==='a-q'){S.search=e.target.value;renderArchive()}});
-$('#view-archive').addEventListener('change',e=>{if(e.target.id==='a-f'){S.filterF=e.target.value;renderArchive()}});
+$('#view-archive').addEventListener('change',e=>{const t=e.target;if(t.id==='a-f')S.filterF=t.value;else if(t.id==='a-t')S.filterT=t.value;else if(t.id==='a-m')S.filterM=t.value;else return;renderArchive()});
+function draftFrom(x){return {type:tOf(x),blPrix:!!x.blPrix,fournisseurId:x.fournisseurId,numero:x.numero,date:x.date,client:{nom:x.client?.nom||'',ice:x.client?.ice||'',adresse:x.client?.adresse||''},lignes:(x.lignes||[]).map(l=>({...l})),tva:x.tva}}
 $('#view-archive').addEventListener('click',async e=>{
   const b=e.target.closest('[data-act]');if(!b)return;const id=b.dataset.id;const x=S.factures.find(y=>y.id===id);
   switch(b.dataset.act){
-    case 'edit':S.editingId=id;S.draft={fournisseurId:x.fournisseurId,numero:x.numero,date:x.date,client:{nom:x.client?.nom||'',ice:x.client?.ice||'',adresse:x.client?.adresse||''},lignes:(x.lignes||[]).map(l=>({...l})),tva:x.tva};if(!S.draft.lignes.length)S.draft.lignes=[{designation:'',qte:'1',pu:''}];setTab('nouvelle');break;
+    case 'xlsx':exportExcel();break;
+    case 'edit':S.editingId=id;S.draft=draftFrom(x);if(!S.draft.lignes.length)S.draft.lignes=[{designation:'',qte:'1',pu:''}];setTab('nouvelle');break;
+    case 'conv':{const to=b.dataset.to;S.editingId=null;const d=draftFrom(x);d.type=to;d.blPrix=false;d.date=todayISO();d.numero=nextNumero(d.fournisseurId,d.date,to);d._numTouched=true;S.draft=d;setTab('nouvelle');
+      toast(`${TYPES[to].label} préparé(e) à partir de ${x.numero}. Vérifiez puis enregistrez.`);break}
     case 'pdf':await downloadPdf(x);break;
     case 'del':S.confirmDel=id;renderArchive();break;
     case 'del-no':S.confirmDel=null;renderArchive();break;
-    case 'del-yes':try{await delDoc('factures',id);S.confirmDel=null;if(S.editingId===id){S.editingId=null;S.draft=blankDraft()}toast('Facture supprimée');renderArchive()}catch(err){toast(dbErr(err),true)}break;
+    case 'del-yes':try{await delDoc('factures',id);S.confirmDel=null;if(S.editingId===id){S.editingId=null;S.draft=blankDraft()}toast('Document supprimé');renderArchive()}catch(err){toast(dbErr(err),true)}break;
   }
 });
 
