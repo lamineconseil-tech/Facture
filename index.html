@@ -125,6 +125,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 
 .chk{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted)}
 .badge{display:inline-block;font-size:10.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;padding:2px 6px;border-radius:4px;margin-right:6px;vertical-align:1px;background:var(--sunk);color:var(--muted)}
 .badge.devis{background:var(--accent-soft);color:var(--accent)}
+.badge.bc{background:var(--sunk);color:var(--fg);outline:1px solid var(--line)}
 .badge.bl{background:var(--danger-soft);color:var(--warn)}
 .seg label{flex:1 1 150px;border:1px solid var(--line);border-radius:8px;padding:10px;cursor:pointer;display:flex;gap:8px;align-items:flex-start;font-size:13px}
 .seg label:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}
@@ -190,7 +191,7 @@ input[type=email],input[type=password]{width:100%;border:1px solid var(--line);b
     <div class="err" id="lg-err" hidden></div>
     <button class="btn pri" type="submit" id="lg-btn">Se connecter</button>
     <button class="btn ghost" type="button" id="lg-reset">Mot de passe oublié ?</button>
-    <div class="hint" id="lg-diag" style="font-family:var(--f-num);font-size:11px;overflow-wrap:anywhere">v5</div>
+    <div class="hint" id="lg-diag" style="font-family:var(--f-num);font-size:11px;overflow-wrap:anywhere">v6</div>
   </form>
 </section>
 <div id="app" hidden>
@@ -217,7 +218,7 @@ input[type=email],input[type=password]{width:100%;border:1px solid var(--line);b
 <div id="toast" class="toast" hidden></div>
 
 <script>
-window.__diag=function(m){try{var d=document.getElementById('lg-diag');if(d)d.textContent='v5 · '+m}catch(e){}};
+window.__diag=function(m){try{var d=document.getElementById('lg-diag');if(d)d.textContent='v6 · '+m}catch(e){}};
 window.addEventListener('error',function(e){__diag('Erreur : '+(e.message||'script')+(e.filename?' ('+e.filename.split('/').pop()+')':''))});
 window.addEventListener('unhandledrejection',function(e){var r=e.reason||{};__diag('Erreur : '+(r.code||'')+' '+(r.message||r))});
 </script>
@@ -378,7 +379,8 @@ async function storeImage(canvas,maxLen){
 /* ---------- Numérotation ---------- */
 const TYPES={facture:{label:'Facture',title:'FACTURE',nouveau:'Nouvelle facture',le:'la facture',pre:''},
   devis:{label:'Devis',title:'DEVIS',nouveau:'Nouveau devis',le:'le devis',pre:'D'},
-  bl:{label:'Bon de livraison',short:'BL',title:'BON DE LIVRAISON',nouveau:'Nouveau bon de livraison',le:'le bon de livraison',pre:'BL'}};
+  bl:{label:'Bon de livraison',short:'BL',title:'BON DE LIVRAISON',nouveau:'Nouveau bon de livraison',le:'le bon de livraison',pre:'BL'},
+  bc:{label:'Bon de commande',short:'BC',title:'BON DE COMMANDE',nouveau:'Nouveau bon de commande',le:'le bon de commande',pre:'BC'}};
 const tOf=x=>(x&&TYPES[x.type])?x.type:'facture';
 function nextNumero(fid,dateISO,type){type=type||'facture';
   const f=fById(fid);const pre=((f&&f.prefixe)||'')+TYPES[type].pre;const y=(dateISO||todayISO()).slice(0,4);let max=0;
@@ -416,13 +418,14 @@ function invoiceHTML(d,f){
   return `<div class="a4">${bg}${top}<div class="inner" style="${pad}">
     <div class="i-top"><div><div class="i-title">${TYPES[ty].title}</div><div class="i-no">N° <b>${esc(d.numero)||'—'}</b></div></div>
       <div class="i-date">${esc(ville)}, le <b>${frDate(d.date)}</b></div></div>
-    <div class="i-client"><span class="c-l">Client</span><span class="c-n">${esc(c.nom)||'&nbsp;'}</span>
+    <div class="i-client"><span class="c-l">${ty==='bc'?'Destinataire':'Client'}</span><span class="c-n">${esc(c.nom)||'&nbsp;'}</span>
       <span><b>ICE :</b> ${esc(c.ice)}</span><span><b>Adresse :</b> ${esc(c.adresse).replace(/\n/g,'<br>')}</span></div>
     <table class="t-lines${noPrix?' t-bl':''}"><thead><tr><th style="text-align:left">Désignation</th><th>${noPrix?'Quantité':'Qté'}</th>${noPrix?'':'<th>P.U. H.T</th><th>Montant H.T</th>'}</tr></thead>
       <tbody>${rows}${fill}</tbody></table>
     ${noPrix?'':`<table class="t-tot"><tr><td>Total H.T</td><td>${fmt(t.ht)}</td></tr><tr><td>TVA ${num(d.tva)} %</td><td>${fmt(t.tva)}</td></tr><tr><td>Total T.T.C</td><td>${fmt(t.ttc)}</td></tr></table>`}
     ${ty==='facture'?`<div class="i-words">Arrêtée la présente facture à la somme de : <b>${amountWords(t.ttc)} TTC</b>.</div>`:''}
     ${ty==='devis'?`<div class="i-words">Arrêté le présent devis à la somme de : <b>${amountWords(t.ttc)} TTC</b>.<br>Devis valable 30 jours à compter de sa date.</div>`:''}
+    ${ty==='bc'?`<div class="i-words">Arrêté le présent bon de commande à la somme de : <b>${amountWords(t.ttc)} TTC</b>.</div><div class="i-sign"><div>Bon pour commande<br><small>(cachet et signature)</small></div><div>Accusé de réception du destinataire<br><small>(nom, date, cachet et signature)</small></div></div>`:''}
     ${ty==='bl'?`<div class="i-sign"><div>Cachet et signature du fournisseur</div><div>Reçu par le client<br><small>(nom, date, cachet et signature)</small></div></div>`:''}
   </div>${bot}</div>`;
 }
@@ -512,12 +515,12 @@ function renderEditor(){
       <div class="sec"><h3>Fournisseur</h3>
         <div class="row"><div class="fld"><label for="e-four">Modèle de facture</label><select id="e-four" ${hasF?'':'disabled'}>${fopts}</select></div></div>
         <div class="row">
-          <div class="fld"><label for="e-num">N° ${ty==='facture'?'facture':ty==='devis'?'devis':'BL'}</label><input id="e-num" type="text" class="num-in" style="text-align:left" value="${esc(d.numero)}"></div>
+          <div class="fld"><label for="e-num">N° ${ty==='facture'?'facture':ty==='devis'?'devis':TYPES[ty].short}</label><input id="e-num" type="text" class="num-in" style="text-align:left" value="${esc(d.numero)}"></div>
           <div class="fld"><label for="e-date">Date</label><input id="e-date" type="date" value="${esc(d.date)}"></div>
         </div>
       </div>
-      <div class="sec"><h3>Client</h3>
-        <div class="fld"><label for="e-cnom">Nom du client</label><input id="e-cnom" type="text" value="${esc(d.client.nom)}" placeholder="Ex. SOCIÉTÉ ATLAS SARL"></div>
+      <div class="sec"><h3>${ty==='bc'?'Destinataire':'Client'}</h3>
+        <div class="fld"><label for="e-cnom">${ty==='bc'?'Nom du destinataire':'Nom du client'}</label><input id="e-cnom" type="text" value="${esc(d.client.nom)}" placeholder="Ex. SOCIÉTÉ ATLAS SARL"></div>
         <div class="fld"><label for="e-cice">ICE</label><input id="e-cice" type="text" inputmode="numeric" class="num-in" style="text-align:left" value="${esc(d.client.ice)}" placeholder="15 chiffres"></div>
         <div class="fld"><label for="e-cadr">Adresse</label><textarea id="e-cadr" rows="2">${esc(d.client.adresse)}</textarea></div>
       </div>
@@ -617,13 +620,13 @@ function renderArchive(){
     <select id="a-f" aria-label="Fournisseur"><option value="">Tous les fournisseurs</option>${S.fournisseurs.map(f=>`<option value="${f.id}"${f.id===S.filterF?' selected':''}>${esc(f.nom)}</option>`).join('')}</select>
     <select id="a-m" aria-label="Mois"><option value="">Tous les mois</option>${months.map(m=>`<option value="${m}"${m===S.filterM?' selected':''}>${monthLabel(m)}</option>`).join('')}</select>
     <button class="btn pri" data-act="xlsx" ${list.length?'':'disabled'}>Exporter Excel</button></div>
-  <div class="sum">${cnt('facture')} facture(s) · ${cnt('devis')} devis · ${cnt('bl')} BL &nbsp;—&nbsp; Total factures T.T.C <b>${fmt(totalF)} DH</b></div>
+  <div class="sum">${cnt('facture')} facture(s) · ${cnt('devis')} devis · ${cnt('bl')} BL · ${cnt('bc')} BC &nbsp;—&nbsp; Total factures T.T.C <b>${fmt(totalF)} DH</b></div>
   <div class="list">${list.length?list.map(x=>{const f=fById(x.fournisseurId);const ty=tOf(x);const noPrix=ty==='bl'&&!x.blPrix;return `<div class="it">
      <div><div class="no"><span class="badge ${ty}">${TYPES[ty].short||TYPES[ty].label}</span>${esc(x.numero)}</div><div class="dt">${frDate(x.date)}</div></div>
      <div style="min-width:0"><div class="cl">${esc(x.client?.nom)}</div><div class="fo">${esc(f?f.nom:'Fournisseur supprimé')}</div></div>
      <div class="am">${noPrix?'—':fmt(x.ttc)}<small>${noPrix?'sans prix':'TTC · HT '+fmt(x.ht)}</small></div>
      <div class="ac">${S.confirmDel===x.id?`<span class="confirm">Supprimer définitivement ?<button class="btn sm dng solid" data-act="del-yes" data-id="${x.id}">Oui</button><button class="btn sm" data-act="del-no">Non</button></span>`:
-       `<button class="btn sm" data-act="edit" data-id="${x.id}">Ouvrir / Modifier</button><button class="btn sm" data-act="pdf" data-id="${x.id}">PDF</button>${ty==='devis'?`<button class="btn sm" data-act="conv" data-to="facture" data-id="${x.id}">→ Facture</button>`:''}${ty==='facture'?`<button class="btn sm" data-act="conv" data-to="bl" data-id="${x.id}">→ BL</button>`:''}<button class="btn sm dng" data-act="del" data-id="${x.id}" aria-label="Supprimer">Supprimer</button>`}</div></div>`}).join('')
+       `<button class="btn sm" data-act="edit" data-id="${x.id}">Ouvrir / Modifier</button><button class="btn sm" data-act="pdf" data-id="${x.id}">PDF</button>${ty==='devis'?`<button class="btn sm" data-act="conv" data-to="facture" data-id="${x.id}">→ Facture</button><button class="btn sm" data-act="conv" data-to="bc" data-id="${x.id}">→ BC</button>`:''}${ty==='bc'?`<button class="btn sm" data-act="conv" data-to="facture" data-id="${x.id}">→ Facture</button>`:''}${ty==='facture'?`<button class="btn sm" data-act="conv" data-to="bl" data-id="${x.id}">→ BL</button>`:''}<button class="btn sm dng" data-act="del" data-id="${x.id}" aria-label="Supprimer">Supprimer</button>`}</div></div>`}).join('')
     :`<div class="empty">${S.factures.length?'Aucun document ne correspond à la recherche.':'Aucun document pour le moment. Les factures, devis et BL enregistrés apparaîtront ici.'}</div>`}</div>`;
   if(focusSearch){const i=$('#a-q');i.focus();i.setSelectionRange(pos,pos)}
 }
