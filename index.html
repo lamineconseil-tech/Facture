@@ -22,6 +22,8 @@
   --danger:#e2796c; --danger-soft:#3a1f1b; --warn:#e2b44f; color-scheme:dark}
 
 *{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
 body{background:var(--bg);color:var(--fg);font-family:var(--f-ui);font-size:14px;line-height:1.45}
 button,input,select,textarea{font:inherit;color:inherit}
 .wrap{max-width:1320px;margin:0 auto;padding-inline:16px;padding-block:0 48px}
@@ -179,7 +181,7 @@ input[type=email],input[type=password]{width:100%;border:1px solid var(--line);b
     <div class="err" id="lg-err" hidden></div>
     <button class="btn pri" type="submit" id="lg-btn">Se connecter</button>
     <button class="btn ghost" type="button" id="lg-reset">Mot de passe oublié ?</button>
-    <div class="hint" id="lg-diag" style="font-family:var(--f-num);font-size:11px;overflow-wrap:anywhere">v2</div>
+    <div class="hint" id="lg-diag" style="font-family:var(--f-num);font-size:11px;overflow-wrap:anywhere">v3</div>
   </form>
 </section>
 <div id="app" hidden>
@@ -206,7 +208,7 @@ input[type=email],input[type=password]{width:100%;border:1px solid var(--line);b
 <div id="toast" class="toast" hidden></div>
 
 <script>
-window.__diag=function(m){try{var d=document.getElementById('lg-diag');if(d)d.textContent='v2 · '+m}catch(e){}};
+window.__diag=function(m){try{var d=document.getElementById('lg-diag');if(d)d.textContent='v3 · '+m}catch(e){}};
 window.addEventListener('error',function(e){__diag('Erreur : '+(e.message||'script')+(e.filename?' ('+e.filename.split('/').pop()+')':''))});
 window.addEventListener('unhandledrejection',function(e){var r=e.reason||{};__diag('Erreur : '+(r.code||'')+' '+(r.message||r))});
 </script>
