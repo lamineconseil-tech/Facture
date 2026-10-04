@@ -156,7 +156,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 
 .a4 .t-lines td{border-left:1px solid #222;border-right:1px solid #222;padding:6px 8px;vertical-align:top}
 .a4 .t-lines tbody tr:last-child td{border-bottom:1px solid #222}
 .a4 .t-lines .num{text-align:right;font-family:"IBM Plex Mono",monospace;white-space:nowrap}
-.a4 .t-lines th:nth-child(2),.a4 .t-lines td:nth-child(2){width:70px;text-align:center}
+.a4 .t-lines th:nth-child(2),.a4 .t-lines td:nth-child(2){width:90px;text-align:center}
 .a4 .t-lines th:nth-child(3),.a4 .t-lines th:nth-child(4){width:120px}
 .a4 .t-tot{width:300px;margin-left:auto}
 .a4 .t-tot td{border:1px solid #222;padding:7px 10px}
@@ -191,7 +191,7 @@ input[type=email],input[type=password]{width:100%;border:1px solid var(--line);b
     <div class="err" id="lg-err" hidden></div>
     <button class="btn pri" type="submit" id="lg-btn">Se connecter</button>
     <button class="btn ghost" type="button" id="lg-reset">Mot de passe oublié ?</button>
-    <div class="hint" id="lg-diag" style="font-family:var(--f-num);font-size:11px;overflow-wrap:anywhere">v6</div>
+    <div class="hint" id="lg-diag" style="font-family:var(--f-num);font-size:11px;overflow-wrap:anywhere">v7</div>
   </form>
 </section>
 <div id="app" hidden>
@@ -218,7 +218,7 @@ input[type=email],input[type=password]{width:100%;border:1px solid var(--line);b
 <div id="toast" class="toast" hidden></div>
 
 <script>
-window.__diag=function(m){try{var d=document.getElementById('lg-diag');if(d)d.textContent='v6 · '+m}catch(e){}};
+window.__diag=function(m){try{var d=document.getElementById('lg-diag');if(d)d.textContent='v7 · '+m}catch(e){}};
 window.addEventListener('error',function(e){__diag('Erreur : '+(e.message||'script')+(e.filename?' ('+e.filename.split('/').pop()+')':''))});
 window.addEventListener('unhandledrejection',function(e){var r=e.reason||{};__diag('Erreur : '+(r.code||'')+' '+(r.message||r))});
 </script>
@@ -392,16 +392,20 @@ function blankDraft(fid,type){
   const f=fById(fid)||S.fournisseurs[0];const date=todayISO();
   return {type,blPrix:false,fournisseurId:f?f.id:'',numero:f?nextNumero(f.id,date,type):'',date,client:{nom:'',ice:'',adresse:''},lignes:[{designation:'',qte:'1',pu:''}],tva:f?(f.tva??20):20};
 }
+const UNITES=['U','M2','ML','M3','Kg','T','L','H','J','Ens','Pce','Sac','Voyage'];
+const lineHT=l=>l.forfait?r2(num(l.montant)):r2(num(l.qte)*num(l.pu));
+const qteTxt=l=>l.forfait?'Forfait':fmtQ(l.qte)+(String(l.unite||'').trim()?' '+esc(String(l.unite).trim()):'');
+const lineOk=l=>String(l.designation||'').trim()||num(l.pu)||(l.forfait&&num(l.montant));
 function totals(d){
-  const ht=r2((d.lignes||[]).reduce((s,l)=>s+r2(num(l.qte)*num(l.pu)),0));const tv=r2(ht*num(d.tva)/100);
+  const ht=r2((d.lignes||[]).reduce((s,l)=>s+lineHT(l),0));const tv=r2(ht*num(d.tva)/100);
   return {ht,tva:tv,ttc:r2(ht+tv)};
 }
 
 /* ---------- La facture A4 ---------- */
 function invoiceHTML(d,f){
   const t=totals(d);const mode=(f&&f.mode)||'header';const ty=tOf(d);const noPrix=ty==='bl'&&!d.blPrix;const hdr=imgSrc(f,'header');const ftr=imgSrc(f,'footer');
-  const lines=(d.lignes||[]).filter(l=>String(l.designation||'').trim()||num(l.pu));
-  const rows=lines.map(l=>noPrix?`<tr><td>${esc(l.designation).replace(/\n/g,'<br>')}</td><td class="num">${fmtQ(l.qte)}</td></tr>`:`<tr><td>${esc(l.designation).replace(/\n/g,'<br>')}</td><td class="num">${fmtQ(l.qte)}</td><td class="num">${fmt(num(l.pu))}</td><td class="num">${fmt(r2(num(l.qte)*num(l.pu)))}</td></tr>`).join('');
+  const lines=(d.lignes||[]).filter(lineOk);
+  const rows=lines.map(l=>noPrix?`<tr><td>${esc(l.designation).replace(/\n/g,'<br>')}</td><td class="num">${qteTxt(l)}</td></tr>`:`<tr><td>${esc(l.designation).replace(/\n/g,'<br>')}</td><td class="num">${qteTxt(l)}</td><td class="num">${l.forfait?'—':fmt(num(l.pu))}</td><td class="num">${fmt(lineHT(l))}</td></tr>`).join('');
   const avail=mode==='page'?1123-Math.round(num(f&&f.mt!=null?f.mt:45)*3.78)-Math.round(num(f&&f.mb!=null?f.mb:30)*3.78):900;
   const maxRows=Math.max(1,Math.min(9,Math.floor((avail-400)/30)));
   const fill=Array.from({length:Math.max(0,maxRows-lines.length)},()=>noPrix?'<tr><td>&nbsp;</td><td></td></tr>':'<tr><td>&nbsp;</td><td></td><td></td><td></td></tr>').join('');
@@ -499,11 +503,15 @@ function renderEditor(){
   const lines=d.lignes.map((l,i)=>`<div class="line" data-i="${i}">
       <div class="line-head"><span>Ligne <span class="n">${i+1}</span></span>${d.lignes.length>1?`<button class="x" data-act="del-line" data-i="${i}" aria-label="Supprimer la ligne ${i+1}">×</button>`:''}</div>
       <div class="fld"><label for="l-des-${i}">Désignation</label><textarea id="l-des-${i}" data-k="designation" data-i="${i}" rows="2" placeholder="Ex. Fourniture et pose de carrelage">${esc(l.designation)}</textarea></div>
-      <div class="row">
-        <div class="fld"><label for="l-q-${i}">Quantité</label><input id="l-q-${i}" type="text" inputmode="decimal" class="num-in" data-k="qte" data-i="${i}" value="${esc(l.qte)}"></div>
+      <label class="chk"><input type="checkbox" data-forfait="${i}"${l.forfait?' checked':''}> Forfait (montant global, sans quantité ni prix unitaire)</label>
+      ${l.forfait?`<div class="row">
+        <div class="fld"><label for="l-m-${i}">Montant H.T du forfait</label><input id="l-m-${i}" type="text" inputmode="decimal" class="num-in" data-k="montant" data-i="${i}" value="${esc(l.montant||'')}" placeholder="0,00"></div>
+      </div>`:`<div class="row">
+        <div class="fld" style="flex:1 1 80px"><label for="l-q-${i}">Quantité</label><input id="l-q-${i}" type="text" inputmode="decimal" class="num-in" data-k="qte" data-i="${i}" value="${esc(l.qte)}"></div>
+        <div class="fld" style="flex:1 1 70px"><label for="l-u-${i}">Unité</label><input id="l-u-${i}" type="text" list="unites" data-k="unite" data-i="${i}" value="${esc(l.unite||'')}" placeholder="U, M2…" autocapitalize="characters"></div>
         <div class="fld"><label for="l-p-${i}">Prix unitaire H.T</label><input id="l-p-${i}" type="text" inputmode="decimal" class="num-in" data-k="pu" data-i="${i}" value="${esc(l.pu)}" placeholder="0,00"></div>
-        <div class="fld"><span class="lbl">Montant H.T</span><div class="mt" id="l-mt-${i}">${fmt(r2(num(l.qte)*num(l.pu)))}</div></div>
-      </div></div>`).join('');
+        <div class="fld"><span class="lbl">Montant H.T</span><div class="mt" id="l-mt-${i}">${fmt(lineHT(l))}</div></div>
+      </div>`}</div>`).join('')+`<datalist id="unites">${UNITES.map(u=>`<option value="${u}">`).join('')}</datalist>`;
   const editing=S.editingId?S.factures.find(x=>x.id===S.editingId):null;const ty=tOf(d);const T=TYPES[ty];
   v.innerHTML=`
   ${editing?`<div class="notice" style="margin-bottom:12px"><span>Vous modifiez ${T.le} <b>${esc(editing.numero)}</b> (${esc(editing.client?.nom||'')}). Les changements remplaceront ce document.</span><button type="button" class="btn sm" data-act="new">Annuler et créer un nouveau document</button></div>`:''}
@@ -546,7 +554,7 @@ function renderEditor(){
 function renderPreview(){
   const d=S.draft;if(!d)return;const t=totals(d);
   const tot=$('#e-tot');if(tot)tot.innerHTML=`<span>Total H.T</span><span>${fmt(t.ht)}</span><span>TVA ${num(d.tva)} %</span><span>${fmt(t.tva)}</span><span class="big">Total T.T.C</span><span class="big">${fmt(t.ttc)} DH</span>`;
-  d.lignes.forEach((l,i)=>{const m=$('#l-mt-'+i);if(m)m.textContent=fmt(r2(num(l.qte)*num(l.pu)))});
+  d.lignes.forEach((l,i)=>{const m=$('#l-mt-'+i);if(m)m.textContent=fmt(lineHT(l))});
   const pv=$('#e-pv');if(pv)mountPreview(pv,invoiceHTML(d,fById(d.fournisseurId)));
 }
 $('#view-nouvelle').addEventListener('input',e=>{
@@ -561,6 +569,7 @@ $('#view-nouvelle').addEventListener('input',e=>{
 });
 $('#view-nouvelle').addEventListener('change',e=>{
   const t=e.target,d=S.draft;
+  if(t.dataset.forfait!==undefined){const l=d.lignes[+t.dataset.forfait];l.forfait=t.checked;if(t.checked&&!num(l.montant)&&num(l.pu))l.montant=String(lineHT({...l,forfait:false}));renderEditor();const f=$('#l-m-'+t.dataset.forfait);if(f)f.focus();return}
   if(t.name==='e-type'){d.type=t.value;if(!S.editingId){d.numero=nextNumero(d.fournisseurId,d.date,d.type);d._numTouched=false}renderEditor()}
   else if(t.id==='e-blprix'){d.blPrix=t.checked;renderPreview()}
   else if(t.id==='e-four'){d.fournisseurId=t.value;const f=fById(t.value);if(f)d.tva=f.tva??20;if(!S.editingId)d.numero=nextNumero(t.value,d.date,tOf(d));renderEditor()}
@@ -582,13 +591,13 @@ async function saveDraft(andPdf){
   const ty=tOf(d);const T=TYPES[ty];
   if(!String(d.numero).trim())return showErr('Indiquez le numéro du document.');
   if(!String(d.client.nom).trim())return showErr('Indiquez le nom du client.');
-  const lignes=d.lignes.filter(l=>String(l.designation).trim()||num(l.pu));
+  const lignes=d.lignes.filter(lineOk);
   if(!lignes.length)return showErr(ty==='bl'?'Ajoutez au moins une désignation.':'Ajoutez au moins une désignation avec un prix.');
   const dup=S.factures.find(x=>x.fournisseurId===d.fournisseurId&&tOf(x)===ty&&String(x.numero).trim()===String(d.numero).trim()&&x.id!==S.editingId);
   if(dup)return showErr(`Le numéro ${d.numero} existe déjà (${T.label}, client : ${dup.client?.nom||'—'}). Changez le numéro.`);
   const t=totals({...d,lignes});const id=S.editingId||newId('factures');const ex=S.factures.find(x=>x.id===id);
   const data={type:ty,blPrix:!!d.blPrix,fournisseurId:d.fournisseurId,numero:String(d.numero).trim(),date:d.date,client:{nom:d.client.nom.trim(),ice:d.client.ice.trim(),adresse:d.client.adresse.trim()},
-    lignes:lignes.map(l=>({designation:l.designation,qte:String(l.qte),pu:String(l.pu)})),tva:num(d.tva),ht:t.ht,tvaMontant:t.tva,ttc:t.ttc,
+    lignes:lignes.map(l=>l.forfait?{designation:l.designation,forfait:true,montant:String(l.montant||''),qte:'',pu:'',unite:''}:{designation:l.designation,qte:String(l.qte),pu:String(l.pu),unite:String(l.unite||'').trim()}),tva:num(d.tva),ht:t.ht,tvaMontant:t.tva,ttc:t.ttc,
     createdAt:ex?.createdAt||Date.now(),updatedAt:Date.now()};
   S.busy=true;
   try{await saveDoc('factures',id,data);const wasEdit=!!S.editingId;
@@ -633,7 +642,7 @@ function renderArchive(){
 function exportRows(list){
   const head=['Type','N°','Date','Fournisseur','Client','ICE client','Adresse client','Désignations','Total HT','TVA %','Montant TVA','Total TTC'];
   const rows=list.map(x=>[TYPES[tOf(x)].label,x.numero,frDate(x.date),fById(x.fournisseurId)?.nom||'',x.client?.nom||'',x.client?.ice||'',x.client?.adresse||'',
-    (x.lignes||[]).map(l=>`${String(l.designation||'').replace(/\s+/g,' ').trim()} (${fmtQ(l.qte)})`).join(' ; '),r2(x.ht),num(x.tva),r2(x.tvaMontant),r2(x.ttc)]);
+    (x.lignes||[]).map(l=>`${String(l.designation||'').replace(/\s+/g,' ').trim()} (${l.forfait?'forfait':fmtQ(l.qte)+(l.unite?' '+l.unite:'')})`).join(' ; '),r2(x.ht),num(x.tva),r2(x.tvaMontant),r2(x.ttc)]);
   const f=list.filter(x=>tOf(x)==='facture');
   if(f.length)rows.push([],['TOTAL FACTURES','','','','','','','',r2(f.reduce((s,x)=>s+(+x.ht||0),0)),'',r2(f.reduce((s,x)=>s+(+x.tvaMontant||0),0)),r2(f.reduce((s,x)=>s+(+x.ttc||0),0))]);
   return [head,...rows];
