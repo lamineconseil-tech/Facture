@@ -181,7 +181,7 @@ input[type=email],input[type=password]{width:100%;border:1px solid var(--line);b
     <div class="err" id="lg-err" hidden></div>
     <button class="btn pri" type="submit" id="lg-btn">Se connecter</button>
     <button class="btn ghost" type="button" id="lg-reset">Mot de passe oublié ?</button>
-    <div class="hint" id="lg-diag" style="font-family:var(--f-num);font-size:11px;overflow-wrap:anywhere">v3</div>
+    <div class="hint" id="lg-diag" style="font-family:var(--f-num);font-size:11px;overflow-wrap:anywhere">v4</div>
   </form>
 </section>
 <div id="app" hidden>
@@ -208,7 +208,7 @@ input[type=email],input[type=password]{width:100%;border:1px solid var(--line);b
 <div id="toast" class="toast" hidden></div>
 
 <script>
-window.__diag=function(m){try{var d=document.getElementById('lg-diag');if(d)d.textContent='v3 · '+m}catch(e){}};
+window.__diag=function(m){try{var d=document.getElementById('lg-diag');if(d)d.textContent='v4 · '+m}catch(e){}};
 window.addEventListener('error',function(e){__diag('Erreur : '+(e.message||'script')+(e.filename?' ('+e.filename.split('/').pop()+')':''))});
 window.addEventListener('unhandledrejection',function(e){var r=e.reason||{};__diag('Erreur : '+(r.code||'')+' '+(r.message||r))});
 </script>
@@ -460,6 +460,7 @@ function renderStatus(){
 }
 function afterData(){
   if(!S.draft)S.draft=blankDraft();
+  if(!S.editingId&&S.draft.fournisseurId&&!S.draft._numTouched&&!S.draft.client.nom){const n=nextNumero(S.draft.fournisseurId,S.draft.date);if(n!==S.draft.numero){S.draft.numero=n;const el=$('#e-num');if(el&&document.activeElement!==el)el.value=n}}
   if(!S.draft.fournisseurId&&S.fournisseurs[0]&&!S.editingId){S.draft.fournisseurId=S.fournisseurs[0].id;S.draft.tva=S.fournisseurs[0].tva??20;S.draft.numero=nextNumero(S.fournisseurs[0].id,S.draft.date)}
   renderStatus();
   if(S.tab==='nouvelle'){
@@ -485,6 +486,7 @@ function renderEditor(){
       </div></div>`).join('');
   const editing=S.editingId?S.factures.find(x=>x.id===S.editingId):null;
   v.innerHTML=`
+  ${editing?`<div class="notice" style="margin-bottom:12px"><span>Vous modifiez la facture <b>${esc(editing.numero)}</b> (${esc(editing.client?.nom||'')}). Les changements remplaceront cette facture.</span><button type="button" class="btn sm" data-act="new">Annuler et créer une nouvelle facture</button></div>`:''}
   <h2>${editing?`Modifier la facture <span style="font-family:var(--f-num)">${esc(editing.numero)}</span>`:'Nouvelle facture'}</h2>
   ${hasF?'':`<div class="notice" style="margin-bottom:16px"><span>Ajoutez d'abord un fournisseur avec son modèle d'entête. Il restera enregistré pour toutes vos factures.</span><button class="btn pri sm" data-act="go-four">Ajouter un fournisseur</button></div>`}
   <div class="grid">
@@ -528,7 +530,7 @@ function renderPreview(){
 $('#view-nouvelle').addEventListener('input',e=>{
   const t=e.target,d=S.draft;if(!d)return;
   if(t.dataset.k){d.lignes[+t.dataset.i][t.dataset.k]=t.value}
-  else if(t.id==='e-num')d.numero=t.value;
+  else if(t.id==='e-num'){d.numero=t.value;d._numTouched=true}
   else if(t.id==='e-cnom')d.client.nom=t.value;
   else if(t.id==='e-cice')d.client.ice=t.value;
   else if(t.id==='e-cadr')d.client.adresse=t.value;
@@ -564,8 +566,10 @@ async function saveDraft(andPdf){
     lignes:lignes.map(l=>({designation:l.designation,qte:String(l.qte),pu:String(l.pu)})),tva:num(d.tva),ht:t.ht,tvaMontant:t.tva,ttc:t.ttc,
     createdAt:ex?.createdAt||Date.now(),updatedAt:Date.now()};
   S.busy=true;
-  try{await saveDoc('factures',id,data);const wasEdit=!!S.editingId;S.editingId=id;S.draft.lignes=data.lignes.map(l=>({...l}));
-    toast(wasEdit?'Modifications enregistrées':'Facture enregistrée dans l\'archive');renderEditor();
+  try{await saveDoc('factures',id,data);const wasEdit=!!S.editingId;
+    if(!S.factures.some(x=>x.id===id))S.factures.unshift({...data,id});
+    S.editingId=null;S.draft=blankDraft(data.fournisseurId);
+    toast(wasEdit?`Facture ${data.numero} modifiée. Vous pouvez saisir une nouvelle facture.`:`Facture ${data.numero} enregistrée. Vous pouvez saisir la suivante.`);renderEditor();window.scrollTo(0,0);
     if(andPdf)await downloadPdf({...data,id});
   }catch(e){showErr(dbErr(e))}finally{S.busy=false}
 }
