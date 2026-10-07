@@ -165,8 +165,10 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 
 .a4 .t-tot tr:last-child td{font-weight:700;background:#efefef;font-size:13.5px}
 .a4 .t-bl th:nth-child(2),.a4 .t-bl td:nth-child(2){width:120px}
 .a4 .i-regl{font-size:12.5px}
-.a4 .i-stamp{margin-left:auto;width:260px;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11.5px;font-weight:600}
-.a4 .i-stamp img{max-width:240px;max-height:130px;object-fit:contain}
+.a4 .tot-row{display:flex;justify-content:space-between;align-items:flex-start;gap:24px}
+.a4 .tot-row .t-tot{margin-left:0;flex:none}
+.a4 .i-stamp{width:280px;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11.5px;font-weight:600}
+.a4 .i-stamp img{max-width:260px;max-height:125px;object-fit:contain}
 .a4 .i-sign div{position:relative}
 .a4 .stamp-in{position:absolute;right:10px;bottom:4px;max-width:55%;max-height:80px;object-fit:contain}
 .a4 .i-sign{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:6px}
@@ -197,7 +199,7 @@ input[type=email],input[type=password]{width:100%;border:1px solid var(--line);b
     <div class="err" id="lg-err" hidden></div>
     <button class="btn pri" type="submit" id="lg-btn">Se connecter</button>
     <button class="btn ghost" type="button" id="lg-reset">Mot de passe oublié ?</button>
-    <div class="hint" id="lg-diag" style="font-family:var(--f-num);font-size:11px;overflow-wrap:anywhere">v8</div>
+    <div class="hint" id="lg-diag" style="font-family:var(--f-num);font-size:11px;overflow-wrap:anywhere">v9</div>
   </form>
 </section>
 <div id="app" hidden>
@@ -224,7 +226,7 @@ input[type=email],input[type=password]{width:100%;border:1px solid var(--line);b
 <div id="toast" class="toast" hidden></div>
 
 <script>
-window.__diag=function(m){try{var d=document.getElementById('lg-diag');if(d)d.textContent='v8 · '+m}catch(e){}};
+window.__diag=function(m){try{var d=document.getElementById('lg-diag');if(d)d.textContent='v9 · '+m}catch(e){}};
 window.addEventListener('error',function(e){__diag('Erreur : '+(e.message||'script')+(e.filename?' ('+e.filename.split('/').pop()+')':''))});
 window.addEventListener('unhandledrejection',function(e){var r=e.reason||{};__diag('Erreur : '+(r.code||'')+' '+(r.message||r))});
 </script>
@@ -428,7 +430,7 @@ function invoiceHTML(d,f){
   const rows=lines.map(l=>noPrix?`<tr><td>${esc(l.designation).replace(/\n/g,'<br>')}</td><td class="num">${qteTxt(l)}</td></tr>`:`<tr><td>${esc(l.designation).replace(/\n/g,'<br>')}</td><td class="num">${qteTxt(l)}</td><td class="num">${l.forfait?'—':fmt(num(l.pu))}</td><td class="num">${fmt(lineHT(l))}</td></tr>`).join('');
   const avail=mode==='page'?1123-Math.round(num(f&&f.mt!=null?f.mt:45)*3.78)-Math.round(num(f&&f.mb!=null?f.mb:30)*3.78):900;
   const stamp=(d.cachet==null?true:d.cachet)?imgSrc(f,'cachet'):'';const regl=d.reglement&&d.reglement.mode?d.reglement:null;
-  const maxRows=Math.max(1,Math.min(9,Math.floor((avail-400-(stamp&&!['bl','bc'].includes(ty)?150:0)-(regl?24:0))/30)));
+  const maxRows=Math.max(1,Math.min(9,Math.floor((avail-400-(stamp&&!['bl','bc'].includes(ty)?40:0)-(regl?24:0))/30)));
   const fill=Array.from({length:Math.max(0,maxRows-lines.length)},()=>noPrix?'<tr><td>&nbsp;</td><td></td></tr>':'<tr><td>&nbsp;</td><td></td><td></td><td></td></tr>').join('');
   let top='',bot='',bg='',pad='';
   if(mode==='page'){
@@ -447,12 +449,12 @@ function invoiceHTML(d,f){
       <span><b>ICE :</b> ${esc(c.ice)}</span><span><b>Adresse :</b> ${esc(c.adresse).replace(/\n/g,'<br>')}</span></div>
     <table class="t-lines${noPrix?' t-bl':''}"><thead><tr><th style="text-align:left">Désignation</th><th>${noPrix?'Quantité':'Qté'}</th>${noPrix?'':'<th>P.U. H.T</th><th>Montant H.T</th>'}</tr></thead>
       <tbody>${rows}${fill}</tbody></table>
-    ${noPrix?'':`<table class="t-tot"><tr><td>Total H.T</td><td>${fmt(t.ht)}</td></tr><tr><td>TVA ${num(d.tva)} %</td><td>${fmt(t.tva)}</td></tr><tr><td>Total T.T.C</td><td>${fmt(t.ttc)}</td></tr></table>`}
+    ${noPrix?'':`<div class="tot-row">${stamp&&!['bl','bc'].includes(ty)?`<div class="i-stamp"><span>Cachet et signature</span><img src="${stamp}" alt=""></div>`:'<div></div>'}<table class="t-tot"><tr><td>Total H.T</td><td>${fmt(t.ht)}</td></tr><tr><td>TVA ${num(d.tva)} %</td><td>${fmt(t.tva)}</td></tr><tr><td>Total T.T.C</td><td>${fmt(t.ttc)}</td></tr></table></div>`}
     ${regl&&!noPrix?`<div class="i-regl">Mode de règlement : <b>${esc(regl.mode)}</b>${regl.ref?` — ${esc(regl.ref)}`:''}</div>`:''}
     ${ty==='facture'?`<div class="i-words">Arrêtée la présente facture à la somme de : <b>${amountWords(t.ttc)} TTC</b>.</div>`:''}
     ${ty==='devis'?`<div class="i-words">Arrêté le présent devis à la somme de : <b>${amountWords(t.ttc)} TTC</b>.<br>Devis valable 30 jours à compter de sa date.</div>`:''}
     ${ty==='bc'?`<div class="i-words">Arrêté le présent bon de commande à la somme de : <b>${amountWords(t.ttc)} TTC</b>.</div><div class="i-sign"><div>Bon pour commande<br><small>(cachet et signature)</small>${stamp?`<img class="stamp-in" src="${stamp}" alt="">`:''}</div><div>Accusé de réception du destinataire<br><small>(nom, date, cachet et signature)</small></div></div>`:''}
-    ${stamp&&!['bl','bc'].includes(ty)?`<div class="i-stamp"><span>Cachet et signature</span><img src="${stamp}" alt=""></div>`:''}
+    ${stamp&&noPrix&&!['bl','bc'].includes(ty)?`<div class="i-stamp"><span>Cachet et signature</span><img src="${stamp}" alt=""></div>`:''}
     ${ty==='bl'?`<div class="i-sign"><div>Cachet et signature du fournisseur${stamp?`<img class="stamp-in" src="${stamp}" alt="">`:''}</div><div>Reçu par le client<br><small>(nom, date, cachet et signature)</small></div></div>`:''}
   </div>${bot}</div>`;
 }
@@ -693,7 +695,7 @@ function exportExcel(){
 }
 $('#view-archive').addEventListener('input',e=>{if(e.target.id==='a-q'){S.search=e.target.value;renderArchive()}});
 $('#view-archive').addEventListener('change',e=>{const t=e.target;if(t.id==='a-f')S.filterF=t.value;else if(t.id==='a-t')S.filterT=t.value;else if(t.id==='a-m')S.filterM=t.value;else return;renderArchive()});
-function draftFrom(x){return {type:tOf(x),blPrix:!!x.blPrix,cachet:!!x.cachet,reglement:{mode:x.reglement?.mode||'',ref:x.reglement?.ref||''},fournisseurId:x.fournisseurId,numero:x.numero,date:x.date,client:{nom:x.client?.nom||'',ice:x.client?.ice||'',adresse:x.client?.adresse||''},lignes:(x.lignes||[]).map(l=>({...l})),tva:x.tva}}
+function draftFrom(x){return {type:tOf(x),blPrix:!!x.blPrix,cachet:x.cachet==null?null:!!x.cachet,reglement:{mode:x.reglement?.mode||'',ref:x.reglement?.ref||''},fournisseurId:x.fournisseurId,numero:x.numero,date:x.date,client:{nom:x.client?.nom||'',ice:x.client?.ice||'',adresse:x.client?.adresse||''},lignes:(x.lignes||[]).map(l=>({...l})),tva:x.tva}}
 $('#view-archive').addEventListener('click',async e=>{
   const b=e.target.closest('[data-act]');if(!b)return;const id=b.dataset.id;const x=S.factures.find(y=>y.id===id);
   switch(b.dataset.act){
