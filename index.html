@@ -131,6 +131,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 
 .seg label:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}
 .seg small{display:block;color:var(--muted);font-size:12px}
 .drop{border:1px dashed var(--line);border-radius:8px;padding:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.drop img.stamp-pv{background:repeating-conic-gradient(#e6e6e6 0 25%,#fff 0 50%) 0 0/12px 12px;padding:4px}
 .drop img{max-height:60px;max-width:180px;background:#fff;border:1px solid var(--line)}
 
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:8px;font-size:13px;z-index:50;max-width:calc(100% - 32px);box-shadow:0 6px 20px rgba(0,0,0,.2)}
@@ -163,6 +164,11 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 
 .a4 .t-tot td:last-child{text-align:right;font-family:"IBM Plex Mono",monospace}
 .a4 .t-tot tr:last-child td{font-weight:700;background:#efefef;font-size:13.5px}
 .a4 .t-bl th:nth-child(2),.a4 .t-bl td:nth-child(2){width:120px}
+.a4 .i-regl{font-size:12.5px}
+.a4 .i-stamp{margin-left:auto;width:260px;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11.5px;font-weight:600}
+.a4 .i-stamp img{max-width:240px;max-height:130px;object-fit:contain}
+.a4 .i-sign div{position:relative}
+.a4 .stamp-in{position:absolute;right:10px;bottom:4px;max-width:55%;max-height:80px;object-fit:contain}
 .a4 .i-sign{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:6px}
 .a4 .i-sign div{border:1px solid #222;height:110px;padding:8px 10px;font-size:11.5px;font-weight:600}
 .a4 .i-sign small{font-weight:400;color:#555}
@@ -191,7 +197,7 @@ input[type=email],input[type=password]{width:100%;border:1px solid var(--line);b
     <div class="err" id="lg-err" hidden></div>
     <button class="btn pri" type="submit" id="lg-btn">Se connecter</button>
     <button class="btn ghost" type="button" id="lg-reset">Mot de passe oublié ?</button>
-    <div class="hint" id="lg-diag" style="font-family:var(--f-num);font-size:11px;overflow-wrap:anywhere">v7</div>
+    <div class="hint" id="lg-diag" style="font-family:var(--f-num);font-size:11px;overflow-wrap:anywhere">v8</div>
   </form>
 </section>
 <div id="app" hidden>
@@ -218,7 +224,7 @@ input[type=email],input[type=password]{width:100%;border:1px solid var(--line);b
 <div id="toast" class="toast" hidden></div>
 
 <script>
-window.__diag=function(m){try{var d=document.getElementById('lg-diag');if(d)d.textContent='v7 · '+m}catch(e){}};
+window.__diag=function(m){try{var d=document.getElementById('lg-diag');if(d)d.textContent='v8 · '+m}catch(e){}};
 window.addEventListener('error',function(e){__diag('Erreur : '+(e.message||'script')+(e.filename?' ('+e.filename.split('/').pop()+')':''))});
 window.addEventListener('unhandledrejection',function(e){var r=e.reason||{};__diag('Erreur : '+(r.code||'')+' '+(r.message||r))});
 </script>
@@ -316,6 +322,7 @@ let tT;function toast(msg,bad){const t=$('#toast');t.textContent=msg;t.className
 function imgSrc(f,which){
   if(!f)return '';
   if(which==='footer')return f.footerId?'/_blob/'+f.footerId:(f.footerData||'');
+  if(which==='cachet')return f.cachetData||'';
   return f.headerId?'/_blob/'+f.headerId:(f.headerData||'');
 }
 function fById(id){return S.fournisseurs.find(x=>x.id===id)}
@@ -343,6 +350,18 @@ function detectMargins(src){
   return {mt:Math.min(140,Math.max(12,Math.round(top<0?12:mm(top+1)+7))),mb:Math.min(100,Math.max(10,Math.round(bot>=H?10:mm(H-bot)+6)))};
 }
 function loadImg(src){return new Promise((ok,ko)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=ko;i.src=src})}
+function makeStamp(src){
+  const W0=src.width,H0=src.height;const k=document.createElement('canvas');k.width=W0;k.height=H0;const g=k.getContext('2d');g.drawImage(src,0,0);
+  const im=g.getImageData(0,0,W0,H0),d=im.data;let x0=W0,y0=H0,x1=-1,y1=-1;
+  for(let y=0;y<H0;y++)for(let x=0;x<W0;x++){const i=(y*W0+x)*4;const lum=d[i]*.3+d[i+1]*.59+d[i+2]*.11;
+    let a=lum>=215?0:lum<=165?255:Math.round(255*(215-lum)/50);a=Math.min(a,d[i+3]);d[i+3]=a;if(a>40){if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y}}
+  g.putImageData(im,0,0);if(x1<0)throw new Error('blank');
+  const pad=6;x0=Math.max(0,x0-pad);y0=Math.max(0,y0-pad);x1=Math.min(W0-1,x1+pad);y1=Math.min(H0-1,y1+pad);
+  let w=x1-x0+1,h=y1-y0+1,sc=Math.min(1,560/Math.max(w,h)),out;
+  for(let t=0;t<5;t++){const o=document.createElement('canvas');o.width=Math.round(w*sc);o.height=Math.round(h*sc);o.getContext('2d').drawImage(k,x0,y0,w,h,0,0,o.width,o.height);
+    out=o.toDataURL('image/png');if(out.length<=320000)break;sc*=.8}
+  return out;
+}
 function isBlank(c){
   const k=document.createElement('canvas');k.width=200;k.height=Math.max(1,Math.round(200*c.height/c.width));
   const g=k.getContext('2d');g.drawImage(c,0,0,k.width,k.height);const d=g.getImageData(0,0,k.width,k.height).data;let n=0;
@@ -390,12 +409,13 @@ function nextNumero(fid,dateISO,type){type=type||'facture';
 function blankDraft(fid,type){
   type=type||(S.draft&&S.draft.type)||'facture';
   const f=fById(fid)||S.fournisseurs[0];const date=todayISO();
-  return {type,blPrix:false,fournisseurId:f?f.id:'',numero:f?nextNumero(f.id,date,type):'',date,client:{nom:'',ice:'',adresse:''},lignes:[{designation:'',qte:'1',pu:''}],tva:f?(f.tva??20):20};
+  return {type,blPrix:false,cachet:null,reglement:{mode:'',ref:''},fournisseurId:f?f.id:'',numero:f?nextNumero(f.id,date,type):'',date,client:{nom:'',ice:'',adresse:''},lignes:[{designation:'',qte:'1',pu:''}],tva:f?(f.tva??20):20};
 }
 const UNITES=['U','M2','ML','M3','Kg','T','L','H','J','Ens','Pce','Sac','Voyage'];
 const lineHT=l=>l.forfait?r2(num(l.montant)):r2(num(l.qte)*num(l.pu));
 const qteTxt=l=>l.forfait?'Forfait':fmtQ(l.qte)+(String(l.unite||'').trim()?' '+esc(String(l.unite).trim()):'');
 const lineOk=l=>String(l.designation||'').trim()||num(l.pu)||(l.forfait&&num(l.montant));
+const useCachet=d=>d.cachet==null?!!imgSrc(fById(d.fournisseurId),'cachet'):!!d.cachet;
 function totals(d){
   const ht=r2((d.lignes||[]).reduce((s,l)=>s+lineHT(l),0));const tv=r2(ht*num(d.tva)/100);
   return {ht,tva:tv,ttc:r2(ht+tv)};
@@ -407,7 +427,8 @@ function invoiceHTML(d,f){
   const lines=(d.lignes||[]).filter(lineOk);
   const rows=lines.map(l=>noPrix?`<tr><td>${esc(l.designation).replace(/\n/g,'<br>')}</td><td class="num">${qteTxt(l)}</td></tr>`:`<tr><td>${esc(l.designation).replace(/\n/g,'<br>')}</td><td class="num">${qteTxt(l)}</td><td class="num">${l.forfait?'—':fmt(num(l.pu))}</td><td class="num">${fmt(lineHT(l))}</td></tr>`).join('');
   const avail=mode==='page'?1123-Math.round(num(f&&f.mt!=null?f.mt:45)*3.78)-Math.round(num(f&&f.mb!=null?f.mb:30)*3.78):900;
-  const maxRows=Math.max(1,Math.min(9,Math.floor((avail-400)/30)));
+  const stamp=(d.cachet==null?true:d.cachet)?imgSrc(f,'cachet'):'';const regl=d.reglement&&d.reglement.mode?d.reglement:null;
+  const maxRows=Math.max(1,Math.min(9,Math.floor((avail-400-(stamp&&!['bl','bc'].includes(ty)?150:0)-(regl?24:0))/30)));
   const fill=Array.from({length:Math.max(0,maxRows-lines.length)},()=>noPrix?'<tr><td>&nbsp;</td><td></td></tr>':'<tr><td>&nbsp;</td><td></td><td></td><td></td></tr>').join('');
   let top='',bot='',bg='',pad='';
   if(mode==='page'){
@@ -427,10 +448,12 @@ function invoiceHTML(d,f){
     <table class="t-lines${noPrix?' t-bl':''}"><thead><tr><th style="text-align:left">Désignation</th><th>${noPrix?'Quantité':'Qté'}</th>${noPrix?'':'<th>P.U. H.T</th><th>Montant H.T</th>'}</tr></thead>
       <tbody>${rows}${fill}</tbody></table>
     ${noPrix?'':`<table class="t-tot"><tr><td>Total H.T</td><td>${fmt(t.ht)}</td></tr><tr><td>TVA ${num(d.tva)} %</td><td>${fmt(t.tva)}</td></tr><tr><td>Total T.T.C</td><td>${fmt(t.ttc)}</td></tr></table>`}
+    ${regl&&!noPrix?`<div class="i-regl">Mode de règlement : <b>${esc(regl.mode)}</b>${regl.ref?` — ${esc(regl.ref)}`:''}</div>`:''}
     ${ty==='facture'?`<div class="i-words">Arrêtée la présente facture à la somme de : <b>${amountWords(t.ttc)} TTC</b>.</div>`:''}
     ${ty==='devis'?`<div class="i-words">Arrêté le présent devis à la somme de : <b>${amountWords(t.ttc)} TTC</b>.<br>Devis valable 30 jours à compter de sa date.</div>`:''}
-    ${ty==='bc'?`<div class="i-words">Arrêté le présent bon de commande à la somme de : <b>${amountWords(t.ttc)} TTC</b>.</div><div class="i-sign"><div>Bon pour commande<br><small>(cachet et signature)</small></div><div>Accusé de réception du destinataire<br><small>(nom, date, cachet et signature)</small></div></div>`:''}
-    ${ty==='bl'?`<div class="i-sign"><div>Cachet et signature du fournisseur</div><div>Reçu par le client<br><small>(nom, date, cachet et signature)</small></div></div>`:''}
+    ${ty==='bc'?`<div class="i-words">Arrêté le présent bon de commande à la somme de : <b>${amountWords(t.ttc)} TTC</b>.</div><div class="i-sign"><div>Bon pour commande<br><small>(cachet et signature)</small>${stamp?`<img class="stamp-in" src="${stamp}" alt="">`:''}</div><div>Accusé de réception du destinataire<br><small>(nom, date, cachet et signature)</small></div></div>`:''}
+    ${stamp&&!['bl','bc'].includes(ty)?`<div class="i-stamp"><span>Cachet et signature</span><img src="${stamp}" alt=""></div>`:''}
+    ${ty==='bl'?`<div class="i-sign"><div>Cachet et signature du fournisseur${stamp?`<img class="stamp-in" src="${stamp}" alt="">`:''}</div><div>Reçu par le client<br><small>(nom, date, cachet et signature)</small></div></div>`:''}
   </div>${bot}</div>`;
 }
 function fitPreview(box){
@@ -535,6 +558,11 @@ function renderEditor(){
       <div class="sec"><h3>Désignations</h3>${lines}
         <button type="button" class="btn" data-act="add-line">+ Ajouter une ligne</button>
       </div>
+      <div class="sec"><h3>Règlement et cachet</h3>
+        <div class="row"><div class="fld"><label for="e-regl">Mode de règlement</label><select id="e-regl"><option value="">— Non indiqué —</option>${['Chèque','Espèces','Virement','Effet'].map(m=>`<option${(d.reglement&&d.reglement.mode)===m?' selected':''}>${m}</option>`).join('')}</select></div>
+          ${d.reglement&&d.reglement.mode&&d.reglement.mode!=='Espèces'?`<div class="fld"><label for="e-rref">${d.reglement.mode==='Chèque'?'N° du chèque / banque':d.reglement.mode==='Effet'?'N° et échéance de l\'effet':'Référence / RIB'} (optionnel)</label><input id="e-rref" type="text" value="${esc(d.reglement.ref||'')}"></div>`:''}</div>
+        ${imgSrc(fById(d.fournisseurId),'cachet')?`<label class="chk"><input type="checkbox" id="e-cachet"${useCachet(d)?' checked':''}> Ajouter le cachet et la signature du fournisseur</label>`:`<span class="hint">Pour ajouter un cachet, enregistrez-le dans Fournisseurs → Modifier → Cachet et signature.</span>`}
+      </div>
       ${ty==='bl'?`<label class="chk"><input type="checkbox" id="e-blprix"${d.blPrix?' checked':''}> Afficher les prix et les totaux sur le bon de livraison</label>`:''}
       <div class="sec">
         <div class="row"><div class="fld"><label for="e-tva">Taux de TVA</label><select id="e-tva">${TVA_RATES.map(r=>`<option value="${r}"${num(d.tva)===r?' selected':''}>${r} %</option>`).join('')}</select></div></div>
@@ -564,6 +592,7 @@ $('#view-nouvelle').addEventListener('input',e=>{
   else if(t.id==='e-cnom')d.client.nom=t.value;
   else if(t.id==='e-cice')d.client.ice=t.value;
   else if(t.id==='e-cadr')d.client.adresse=t.value;
+  else if(t.id==='e-rref'){d.reglement={...(d.reglement||{}),ref:t.value}}
   else return;
   renderPreview();
 });
@@ -572,7 +601,9 @@ $('#view-nouvelle').addEventListener('change',e=>{
   if(t.dataset.forfait!==undefined){const l=d.lignes[+t.dataset.forfait];l.forfait=t.checked;if(t.checked&&!num(l.montant)&&num(l.pu))l.montant=String(lineHT({...l,forfait:false}));renderEditor();const f=$('#l-m-'+t.dataset.forfait);if(f)f.focus();return}
   if(t.name==='e-type'){d.type=t.value;if(!S.editingId){d.numero=nextNumero(d.fournisseurId,d.date,d.type);d._numTouched=false}renderEditor()}
   else if(t.id==='e-blprix'){d.blPrix=t.checked;renderPreview()}
-  else if(t.id==='e-four'){d.fournisseurId=t.value;const f=fById(t.value);if(f)d.tva=f.tva??20;if(!S.editingId)d.numero=nextNumero(t.value,d.date,tOf(d));renderEditor()}
+  else if(t.id==='e-cachet'){d.cachet=t.checked;renderPreview()}
+  else if(t.id==='e-regl'){d.reglement={...(d.reglement||{}),mode:t.value};renderEditor()}
+  else if(t.id==='e-four'){d.fournisseurId=t.value;const f=fById(t.value);if(f){d.tva=f.tva??20;d.cachet=null}if(!S.editingId)d.numero=nextNumero(t.value,d.date,tOf(d));renderEditor()}
   else if(t.id==='e-date'){const old=d.date;d.date=t.value;if(!S.editingId&&old.slice(0,4)!==t.value.slice(0,4)){d.numero=nextNumero(d.fournisseurId,d.date,tOf(d));$('#e-num').value=d.numero}renderPreview()}
   else if(t.id==='e-tva'){d.tva=num(t.value);renderPreview()}
 });
@@ -596,7 +627,7 @@ async function saveDraft(andPdf){
   const dup=S.factures.find(x=>x.fournisseurId===d.fournisseurId&&tOf(x)===ty&&String(x.numero).trim()===String(d.numero).trim()&&x.id!==S.editingId);
   if(dup)return showErr(`Le numéro ${d.numero} existe déjà (${T.label}, client : ${dup.client?.nom||'—'}). Changez le numéro.`);
   const t=totals({...d,lignes});const id=S.editingId||newId('factures');const ex=S.factures.find(x=>x.id===id);
-  const data={type:ty,blPrix:!!d.blPrix,fournisseurId:d.fournisseurId,numero:String(d.numero).trim(),date:d.date,client:{nom:d.client.nom.trim(),ice:d.client.ice.trim(),adresse:d.client.adresse.trim()},
+  const data={type:ty,blPrix:!!d.blPrix,cachet:useCachet(d),reglement:{mode:(d.reglement&&d.reglement.mode)||'',ref:d.reglement&&d.reglement.mode&&d.reglement.mode!=='Espèces'?String(d.reglement.ref||'').trim():''},fournisseurId:d.fournisseurId,numero:String(d.numero).trim(),date:d.date,client:{nom:d.client.nom.trim(),ice:d.client.ice.trim(),adresse:d.client.adresse.trim()},
     lignes:lignes.map(l=>l.forfait?{designation:l.designation,forfait:true,montant:String(l.montant||''),qte:'',pu:'',unite:''}:{designation:l.designation,qte:String(l.qte),pu:String(l.pu),unite:String(l.unite||'').trim()}),tva:num(d.tva),ht:t.ht,tvaMontant:t.tva,ttc:t.ttc,
     createdAt:ex?.createdAt||Date.now(),updatedAt:Date.now()};
   S.busy=true;
@@ -640,9 +671,9 @@ function renderArchive(){
   if(focusSearch){const i=$('#a-q');i.focus();i.setSelectionRange(pos,pos)}
 }
 function exportRows(list){
-  const head=['Type','N°','Date','Fournisseur','Client','ICE client','Adresse client','Désignations','Total HT','TVA %','Montant TVA','Total TTC'];
+  const head=['Type','N°','Date','Fournisseur','Client','ICE client','Adresse client','Désignations','Total HT','TVA %','Montant TVA','Total TTC','Règlement'];
   const rows=list.map(x=>[TYPES[tOf(x)].label,x.numero,frDate(x.date),fById(x.fournisseurId)?.nom||'',x.client?.nom||'',x.client?.ice||'',x.client?.adresse||'',
-    (x.lignes||[]).map(l=>`${String(l.designation||'').replace(/\s+/g,' ').trim()} (${l.forfait?'forfait':fmtQ(l.qte)+(l.unite?' '+l.unite:'')})`).join(' ; '),r2(x.ht),num(x.tva),r2(x.tvaMontant),r2(x.ttc)]);
+    (x.lignes||[]).map(l=>`${String(l.designation||'').replace(/\s+/g,' ').trim()} (${l.forfait?'forfait':fmtQ(l.qte)+(l.unite?' '+l.unite:'')})`).join(' ; '),r2(x.ht),num(x.tva),r2(x.tvaMontant),r2(x.ttc),x.reglement?.mode?(x.reglement.mode+(x.reglement.ref?' — '+x.reglement.ref:'')):'']);
   const f=list.filter(x=>tOf(x)==='facture');
   if(f.length)rows.push([],['TOTAL FACTURES','','','','','','','',r2(f.reduce((s,x)=>s+(+x.ht||0),0)),'',r2(f.reduce((s,x)=>s+(+x.tvaMontant||0),0)),r2(f.reduce((s,x)=>s+(+x.ttc||0),0))]);
   return [head,...rows];
@@ -652,7 +683,7 @@ function exportExcel(){
   const list=archiveList();if(!list.length)return;const aoa=exportRows(list);
   const name='export-'+(S.filterT?TYPES[S.filterT].label.toLowerCase().replace(/\s+/g,'-'):'documents')+(S.filterM?'-'+S.filterM:'')+'-'+todayISO();
   if(window.XLSX){
-    const ws=XLSX.utils.aoa_to_sheet(aoa);ws['!cols']=[{wch:16},{wch:14},{wch:11},{wch:22},{wch:26},{wch:17},{wch:30},{wch:50},{wch:13},{wch:7},{wch:13},{wch:13}];
+    const ws=XLSX.utils.aoa_to_sheet(aoa);ws['!cols']=[{wch:16},{wch:14},{wch:11},{wch:22},{wch:26},{wch:17},{wch:30},{wch:50},{wch:13},{wch:7},{wch:13},{wch:13},{wch:24}];
     const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Documents');XLSX.writeFile(wb,name+'.xlsx');
   }else{
     const csv='﻿'+aoa.map(r=>r.map(c=>{const v=typeof c==='number'?String(c).replace('.',','):String(c??'');return /[;"\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}).join(';')).join('\r\n');
@@ -662,7 +693,7 @@ function exportExcel(){
 }
 $('#view-archive').addEventListener('input',e=>{if(e.target.id==='a-q'){S.search=e.target.value;renderArchive()}});
 $('#view-archive').addEventListener('change',e=>{const t=e.target;if(t.id==='a-f')S.filterF=t.value;else if(t.id==='a-t')S.filterT=t.value;else if(t.id==='a-m')S.filterM=t.value;else return;renderArchive()});
-function draftFrom(x){return {type:tOf(x),blPrix:!!x.blPrix,fournisseurId:x.fournisseurId,numero:x.numero,date:x.date,client:{nom:x.client?.nom||'',ice:x.client?.ice||'',adresse:x.client?.adresse||''},lignes:(x.lignes||[]).map(l=>({...l})),tva:x.tva}}
+function draftFrom(x){return {type:tOf(x),blPrix:!!x.blPrix,cachet:!!x.cachet,reglement:{mode:x.reglement?.mode||'',ref:x.reglement?.ref||''},fournisseurId:x.fournisseurId,numero:x.numero,date:x.date,client:{nom:x.client?.nom||'',ice:x.client?.ice||'',adresse:x.client?.adresse||''},lignes:(x.lignes||[]).map(l=>({...l})),tva:x.tva}}
 $('#view-archive').addEventListener('click',async e=>{
   const b=e.target.closest('[data-act]');if(!b)return;const id=b.dataset.id;const x=S.factures.find(y=>y.id===id);
   switch(b.dataset.act){
@@ -685,11 +716,12 @@ function fPreviewObj(){
   const e=S.fEdit;const base=e.id?fById(e.id):null;
   return {nom:e.nom,ville:e.ville,tva:e.tva,mode:e.mode,mt:e.mt,mb:e.mb,
     headerData:e.header?e.header.preview:(base?imgSrc(base,'header'):''),
-    footerData:e.removeFooter?'':(e.footer?e.footer.preview:(base?imgSrc(base,'footer'):''))};
+    footerData:e.removeFooter?'':(e.footer?e.footer.preview:(base?imgSrc(base,'footer'):'')),
+    cachetData:e.removeCachet?'':(e.cachet?e.cachet.preview:(base?imgSrc(base,'cachet'):''))};
 }
 function renderFournisseurs(){
   if(!S.fEdit)S.fEdit=blankF();const e=S.fEdit;const v=$('#view-fournisseurs');const base=e.id?fById(e.id):null;
-  const hasHdr=!!(e.header||(base&&imgSrc(base,'header')));const hasFtr=!e.removeFooter&&!!(e.footer||(base&&imgSrc(base,'footer')));
+  const hasHdr=!!(e.header||(base&&imgSrc(base,'header')));const hasFtr=!e.removeFooter&&!!(e.footer||(base&&imgSrc(base,'footer')));const hasCachet=!e.removeCachet&&!!(e.cachet||(base&&imgSrc(base,'cachet')));
   v.innerHTML=`<h2>Fournisseurs</h2>
   <div class="grid">
     <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
@@ -720,6 +752,11 @@ function renderFournisseurs(){
          <div class="fld"><label for="f-mb">Marge bas (mm)</label><input id="f-mb" type="number" min="0" max="200" value="${esc(e.mb)}"></div></div>
          <div class="actions" style="align-items:center"><button type="button" class="btn sm" data-act="auto-m"${hasHdr?'':' disabled'}>Ajuster automatiquement</button>
          <span class="hint">Les marges se règlent seules selon votre papier. Vous pouvez les corriger à la main.</span></div>`}
+      <div class="fld"><span class="lbl">Cachet et signature (optionnel)</span>
+        <div class="drop">${hasCachet?`<img class="stamp-pv" src="${esc(e.cachet?e.cachet.preview:imgSrc(base,'cachet'))}" alt="Cachet actuel">`:''}
+          <label class="btn sm" for="f-cachet">${hasCachet?'Remplacer':'Choisir une photo ou un scan'}</label><input id="f-cachet" type="file" accept="application/pdf,.pdf,image/*" hidden>
+          ${hasCachet?'<button type="button" class="btn sm ghost" data-act="rm-cachet">Retirer</button>':''}
+          <span class="hint">Cachet tamponné et signé sur une feuille blanche, en photo ou scan. Le fond blanc est retiré automatiquement.</span></div></div>
       <div class="err" id="f-err" hidden></div>
       <div class="actions"><button type="button" class="btn pri" data-act="f-save">${e.id?'Enregistrer':'Ajouter le fournisseur'}</button>
         ${e.id?'<button type="button" class="btn ghost" data-act="f-cancel">Annuler</button>':''}</div>
@@ -736,12 +773,12 @@ function previewTarget(){
   const last=[...S.fournisseurs].sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0))[0];
   return last?{obj:last,label:'Modèle : '+last.nom}:{obj:fPreviewObj(),label:"Données d'exemple"};
 }
-function renderFPreview(){const pv=$('#f-pv');if(!pv)return;const t=previewTarget();const c=$('#f-pv-cap');if(c)c.textContent=t.label;mountPreview(pv,invoiceHTML(SAMPLE,t.obj))}
+function renderFPreview(){const pv=$('#f-pv');if(!pv)return;const t=previewTarget();const c=$('#f-pv-cap');if(c)c.textContent=t.label;mountPreview(pv,invoiceHTML({...SAMPLE,cachet:!!t.obj.cachetData,reglement:{mode:'Virement',ref:''}},t.obj))}
 function renderFList(){
   const el=$('#f-list');if(!el)return;
   el.innerHTML=S.fournisseurs.length?S.fournisseurs.map(f=>{const n=S.factures.filter(x=>x.fournisseurId===f.id).length;const src=imgSrc(f,'header');
     return `<div class="fcard">${src?`<img src="${esc(src)}" alt="">`:'<span class="ph">sans entête</span>'}
-      <div class="tx"><b>${esc(f.nom)}</b><span>${n} facture${n>1?'s':''} · TVA ${num(f.tva??20)} % · ${f.mode==='page'?'Page complète':'Entête'}</span></div>
+      <div class="tx"><b>${esc(f.nom)}</b><span>${n} facture${n>1?'s':''} · TVA ${num(f.tva??20)} % · ${f.mode==='page'?'Page complète':'Entête'}${f.cachetData?' · cachet ✓':''}</span></div>
       ${S.fConfirm===f.id?`<span class="confirm">${n?`${n} facture(s) liée(s) : supprimez-les d'abord.<button class="btn sm" data-act="fd-no">OK</button>`:`Supprimer ?<button class="btn sm dng solid" data-act="fd-yes" data-id="${f.id}">Oui</button><button class="btn sm" data-act="fd-no">Non</button>`}</span>`
       :`<div class="actions"><button class="btn sm" data-act="f-edit" data-id="${f.id}">Modifier</button><button class="btn sm dng" data-act="f-del" data-id="${f.id}">Supprimer</button></div>`}</div>`}).join('')
     :'<div class="empty" style="padding:12px">Aucun fournisseur. Ajoutez le premier avec le formulaire ci-dessus.</div>';
@@ -755,6 +792,12 @@ $('#view-fournisseurs').addEventListener('change',async e=>{
   const t=e.target,f=S.fEdit;
   if(t.id==='f-tva'){f.tva=num(t.value);renderFPreview()}
   if(t.name==='f-mode'){f.mode=t.value;renderFournisseurs()}
+  if(t.id==='f-cachet'){
+    const file=t.files&&t.files[0];if(!file)return;
+    try{const c=await fileToCanvas(file,1400);const data=makeStamp(c);f.cachet={preview:data};f.removeCachet=false;renderFournisseurs();toast('Cachet prêt. Vérifiez l\'aperçu puis enregistrez.')}
+    catch(err){toast("Ce cachet n'a pas pu être lu. Utilisez une photo nette du cachet sur fond blanc (PNG, JPG ou PDF).",true)}
+    return;
+  }
   if(t.id==='f-hdr'||t.id==='f-ftr'){
     const file=t.files&&t.files[0];if(!file)return;
     try{const c=await fileToCanvas(file,2400);const obj={canvas:c,preview:c.toDataURL('image/jpeg',.85)};
@@ -767,6 +810,7 @@ $('#view-fournisseurs').addEventListener('change',async e=>{
 $('#view-fournisseurs').addEventListener('click',async e=>{
   const b=e.target.closest('[data-act]');if(!b)return;const a=b.dataset.act;
   if(a==='auto-m'){const e=S.fEdit;const base=e.id?fById(e.id):null;try{const src=e.header?e.header.canvas:await loadImg(imgSrc(base,'header'));const m=detectMargins(src);e.mt=m.mt;e.mb=m.mb;renderFournisseurs();toast(`Marges : haut ${m.mt} mm, bas ${m.mb} mm`)}catch(x){toast("Impossible d'analyser l'entête.",true)}}
+  if(a==='rm-cachet'){S.fEdit.cachet=null;S.fEdit.removeCachet=true;renderFournisseurs()}
   if(a==='rm-ftr'){S.fEdit.footer=null;S.fEdit.removeFooter=true;renderFournisseurs()}
   if(a==='f-cancel'){S.fEdit=blankF();renderFournisseurs()}
   if(a==='f-edit'){const f=fById(b.dataset.id);S.fEdit={...blankF(),id:f.id,nom:f.nom||'',ville:f.ville||'Casablanca',tva:f.tva??20,prefixe:f.prefixe||'',mode:f.mode||'header',mt:f.mt??45,mb:f.mb??30};renderFournisseurs();window.scrollTo(0,0)}
@@ -784,6 +828,7 @@ async function saveF(){
   try{
     const data={nom:e.nom.trim(),ville:e.ville.trim()||'Casablanca',tva:num(e.tva),prefixe:e.prefixe.trim(),mode:e.mode,mt:num(e.mt),mb:num(e.mb),autoM:true,
       headerId:base?.headerId||null,headerData:base?.headerData||null,footerId:base?.footerId||null,footerData:base?.footerData||null,
+      cachetData:e.removeCachet?null:(e.cachet?e.cachet.preview:(base?.cachetData||null)),
       createdAt:base?.createdAt||Date.now(),updatedAt:Date.now()};
     if(e.header){const r=await storeImage(e.header.canvas,e.mode==='page'?170000:140000);data.headerId=r.id||null;data.headerData=r.data||null}
     if(e.removeFooter){data.footerId=null;data.footerData=null}
