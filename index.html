@@ -199,7 +199,7 @@ input[type=email],input[type=password]{width:100%;border:1px solid var(--line);b
     <div class="err" id="lg-err" hidden></div>
     <button class="btn pri" type="submit" id="lg-btn">Se connecter</button>
     <button class="btn ghost" type="button" id="lg-reset">Mot de passe oublié ?</button>
-    <div class="hint" id="lg-diag" style="font-family:var(--f-num);font-size:11px;overflow-wrap:anywhere">v9</div>
+    <div class="hint" id="lg-diag" style="font-family:var(--f-num);font-size:11px;overflow-wrap:anywhere">v10</div>
   </form>
 </section>
 <div id="app" hidden>
@@ -226,7 +226,7 @@ input[type=email],input[type=password]{width:100%;border:1px solid var(--line);b
 <div id="toast" class="toast" hidden></div>
 
 <script>
-window.__diag=function(m){try{var d=document.getElementById('lg-diag');if(d)d.textContent='v9 · '+m}catch(e){}};
+window.__diag=function(m){try{var d=document.getElementById('lg-diag');if(d)d.textContent='v10 · '+m}catch(e){}};
 window.addEventListener('error',function(e){__diag('Erreur : '+(e.message||'script')+(e.filename?' ('+e.filename.split('/').pop()+')':''))});
 window.addEventListener('unhandledrejection',function(e){var r=e.reason||{};__diag('Erreur : '+(r.code||'')+' '+(r.message||r))});
 </script>
@@ -431,7 +431,8 @@ function invoiceHTML(d,f){
   const avail=mode==='page'?1123-Math.round(num(f&&f.mt!=null?f.mt:45)*3.78)-Math.round(num(f&&f.mb!=null?f.mb:30)*3.78):900;
   const stamp=(d.cachet==null?true:d.cachet)?imgSrc(f,'cachet'):'';const regl=d.reglement&&d.reglement.mode?d.reglement:null;
   const maxRows=Math.max(1,Math.min(9,Math.floor((avail-400-(stamp&&!['bl','bc'].includes(ty)?40:0)-(regl?24:0))/30)));
-  const fill=Array.from({length:Math.max(0,maxRows-lines.length)},()=>noPrix?'<tr><td>&nbsp;</td><td></td></tr>':'<tr><td>&nbsp;</td><td></td><td></td><td></td></tr>').join('');
+  const used=lines.reduce((u,l)=>{const w=noPrix?78:44;const vis=String(l.designation||'').split('\n').reduce((n,t)=>n+Math.max(1,Math.ceil(t.length/w)),0);return u+(vis*17.5+12)/30},0);
+  const fill=Array.from({length:Math.max(0,Math.floor(maxRows-used))},()=>noPrix?'<tr><td>&nbsp;</td><td></td></tr>':'<tr><td>&nbsp;</td><td></td><td></td><td></td></tr>').join('');
   let top='',bot='',bg='',pad='';
   if(mode==='page'){
     bg=hdr?`<img class="bgimg" src="${hdr}" alt="">`:'<div class="bgph">Papier en-tête du fournisseur</div>';
